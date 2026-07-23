@@ -1,5 +1,5 @@
 // 认证 Hook
-// 封装 auth-store + API 调用，提供完整的登录/注册/登出流程
+// 封装 auth-store + API 调用，提供完整的登录/注册/登出/改密/更新信息流程
 
 'use client';
 
@@ -18,6 +18,18 @@ interface RegisterParams {
   username: string;
   email: string;
   password: string;
+}
+
+interface ChangePasswordParams {
+  oldPassword: string;
+  newPassword: string;
+}
+
+interface UpdateProfileParams {
+  username?: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
 }
 
 export function useAuth() {
@@ -59,7 +71,7 @@ export function useAuth() {
     try {
       await api.post('/auth/logout', {});
     } catch {
-      // 忽略登出接口错误
+      // 忽略登出接口错误（如 token 已过期）
     }
     resetSocket();
     storeLogout();
@@ -77,6 +89,32 @@ export function useAuth() {
     }
   }, [accessToken, updateUser]);
 
+  // 修改密码：需原密码，改密后后端撤销所有 refresh token，前端强制登出
+  const changePassword = useCallback(
+    async (params: ChangePasswordParams): Promise<{ message: string }> => {
+      const res = await api.post<{ data: { message: string } }>(
+        '/auth/change-password',
+        params
+      );
+      // 改密成功后，后端已撤销所有 refresh token，前端必须强制登出
+      resetSocket();
+      storeLogout();
+      return res.data ?? res;
+    },
+    [storeLogout]
+  );
+
+  // 更新个人信息：仅允许 username/email/phone/avatar
+  const updateProfile = useCallback(
+    async (params: UpdateProfileParams): Promise<User> => {
+      const res = await api.patch<{ data: User }>('/auth/profile', params);
+      const updated = res.data ?? res;
+      updateUser(updated);
+      return updated;
+    },
+    [updateUser]
+  );
+
   // 是否为管理员
   const isAdmin = user?.role === 'ADMIN';
 
@@ -89,6 +127,8 @@ export function useAuth() {
     register,
     logout,
     fetchProfile,
+    changePassword,
+    updateProfile,
     updateUser,
   };
 }

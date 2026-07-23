@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -14,22 +15,28 @@ import { RedisService } from '../../redis/redis.service';
 import { JwtPayload } from '../../common/decorators/current-user.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Role } from '@prisma/client';
 
 /**
  * 认证服务
- * 处理注册、登录、刷新令牌、登出、用户验证
+ * 处理注册、登录、刷新令牌、登出、用户验证、修改密码、更新个人信息
  *
  * 安全设计：
  * - bcrypt 12 轮哈希
  * - access token 携带 jti，登出加入 Redis 黑名单
  * - refresh token 一次性轮换：刷新时签发新 refresh，旧 refresh 立即失效
  * - 用户禁用后 token 即时失效（在 JwtStrategy.validate 中校验）
+ * - 登录失败计数与账号锁定（防密码爆破）
  */
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly BCRYPT_ROUNDS: number;
+  // 登录失败保护策略
+  private readonly MAX_FAILED_ATTEMPTS = 5; // 连续失败 5 次锁定
+  private readonly LOCK_DURATION_MINUTES = 15; // 锁定 15 分钟
 
   constructor(
     private readonly prisma: PrismaService,
@@ -113,6 +120,7 @@ export class AuthService {
    * 2. 用户不存在 / 密码错误 / 账号禁用 统一返回相同错误信息
    * 3. 通过 bcrypt compare 时序恒定，防侧信道
    * 4. role 从数据库读取，不信任客户端传入
+   * 5. 登录失败累计计数，连续失败 5 次锁定账号 15 分钟
    *
    * 防越权：
    * - 水平越权：登录返回的 token 携带 sub（用户 ID），所有用户态接口用 user.sub 隔离
@@ -127,13 +135,27 @@ export class AuthService {
       },
     });
 
-    // 用户不存在或密码错误统一返回，避免账号枚举攻击
+    // 用户不存在统一返回相同错误，避免账号枚举攻击
     if (!user) {
       throw new UnauthorizedException('账号或密码错误');
     }
 
+    // 检查账号锁定状态（无论密码对错，锁定期间一律拒绝）
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainMs = user.lockedUntil.getTime() - Date.now();
+      const remainMin = Math.ceil(remainMs / 60000);
+      this.logger.warn(
+        `⚠️ 账号锁定中: ${user.username} (剩余 ${remainMin} 分钟)`,
+      );
+      throw new UnauthorizedException(
+        `账号已被锁定，请 ${remainMin} 分钟后再试`,
+      );
+    }
+
     const passwordValid = await bcrypt.compare(dto.password, user.password);
     if (!passwordValid) {
+      // 登录失败计数累加，达到阈值后锁定
+      await this.recordFailedLogin(user);
       throw new UnauthorizedException('账号或密码错误');
     }
 
@@ -141,6 +163,16 @@ export class AuthService {
     if (user.status === 0) {
       throw new UnauthorizedException('账号已被禁用，请联系管理员');
     }
+
+    // 登录成功：重置失败计数，记录最后登录时间
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date(),
+      },
+    });
 
     this.logger.log(
       `✅ 用户登录: ${user.username} (ID: ${user.id}, role: ${user.role})`,
@@ -164,6 +196,37 @@ export class AuthService {
       },
       ...tokens,
     };
+  }
+
+  /**
+   * 记录登录失败并判断是否需要锁定
+   * - 累加 failedLoginAttempts
+   * - 达到 MAX_FAILED_ATTEMPTS 时设置 lockedUntil = now + LOCK_DURATION_MINUTES
+   * - 锁定后 failedLoginAttempts 重置为 0（避免锁定时间结束后又立即触发）
+   */
+  private async recordFailedLogin(user: { id: number; username: string; failedLoginAttempts: number }): Promise<void> {
+    const newAttempts = user.failedLoginAttempts + 1;
+    if (newAttempts >= this.MAX_FAILED_ATTEMPTS) {
+      const lockedUntil = new Date(Date.now() + this.LOCK_DURATION_MINUTES * 60 * 1000);
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil,
+        },
+      });
+      this.logger.warn(
+        `🔒 账号锁定: ${user.username} (连续失败 ${newAttempts} 次，锁定 ${this.LOCK_DURATION_MINUTES} 分钟)`,
+      );
+    } else {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: newAttempts },
+      });
+      this.logger.warn(
+        `⚠️ 登录失败: ${user.username} (第 ${newAttempts}/${this.MAX_FAILED_ATTEMPTS} 次)`,
+      );
+    }
   }
 
   /**
@@ -200,6 +263,10 @@ export class AuthService {
     }
     if (user.status === 0) {
       throw new UnauthorizedException('账号已被禁用');
+    }
+    // 锁定中的账号也不允许刷新 token
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('账号已被锁定，请稍后再试');
     }
 
     // 签发全新的 access + refresh token（轮换）
@@ -265,6 +332,115 @@ export class AuthService {
       throw new UnauthorizedException('账号已被禁用');
     }
     return user;
+  }
+
+  /**
+   * 修改密码
+   * 1. 校验原密码（防会话劫持后改密）
+   * 2. 新密码不能与原密码相同
+   * 3. 更新 passwordChangedAt，使所有现存 access token 在策略层失效
+   * 4. 撤销所有 refresh token（强制用户重新登录）
+   *
+   * @param userId 当前登录用户 ID（从 JWT sub 取得）
+   * @param dto    含原密码与新密码
+   */
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 校验原密码
+    const oldValid = await bcrypt.compare(dto.oldPassword, user.password);
+    if (!oldValid) {
+      throw new UnauthorizedException('原密码不正确');
+    }
+
+    // 新密码不能与原密码相同
+    if (dto.oldPassword === dto.newPassword) {
+      throw new BadRequestException('新密码不能与原密码相同');
+    }
+
+    // bcrypt 哈希新密码
+    const newHashed = await bcrypt.hash(dto.newPassword, this.BCRYPT_ROUNDS);
+
+    // 更新密码与 passwordChangedAt，并撤销所有 refresh token（强制其他设备重登）
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: newHashed,
+        passwordChangedAt: new Date(),
+      },
+    });
+    await this.redisService.revokeAllRefreshTokens(userId);
+
+    this.logger.log(`🔑 用户修改密码: ${user.username} (ID: ${userId})，所有 refresh token 已撤销`);
+    return { message: '密码修改成功，请使用新密码重新登录' };
+  }
+
+  /**
+   * 用户自助更新个人信息
+   * - 仅允许修改 username/email/phone/avatar
+   * - role/status/password 不在此处修改（防越权）
+   * - 唯一性冲突时返回 409
+   * - 修改 username/email 后，下次签发的 token 会带新值
+   *   （当前 token 仍有效，但用户应主动刷新以获取新值）
+   *
+   * @param userId 当前登录用户 ID
+   * @param dto    待更新字段
+   */
+  async updateProfile(userId: number, dto: UpdateProfileDto) {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 检查用户名唯一性（若变更）
+    if (dto.username && dto.username !== currentUser.username) {
+      const exist = await this.prisma.user.findUnique({
+        where: { username: dto.username },
+        select: { id: true },
+      });
+      if (exist) {
+        throw new ConflictException('用户名已被使用');
+      }
+    }
+
+    // 检查邮箱唯一性（若变更）
+    if (dto.email && dto.email !== currentUser.email) {
+      const exist = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+        select: { id: true },
+      });
+      if (exist) {
+        throw new ConflictException('邮箱已被注册');
+      }
+    }
+
+    // 仅更新提供的字段
+    const data: Record<string, string> = {};
+    if (dto.username !== undefined) data.username = dto.username;
+    if (dto.email !== undefined) data.email = dto.email;
+    if (dto.phone !== undefined) data.phone = dto.phone;
+    if (dto.avatar !== undefined) data.avatar = dto.avatar;
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        avatar: true,
+        phone: true,
+        status: true,
+        updatedAt: true,
+      },
+    });
+
+    this.logger.log(`📝 用户更新个人信息: ${updated.username} (ID: ${userId})`);
+    return updated;
   }
 
   /**

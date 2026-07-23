@@ -65,6 +65,10 @@ export class RedisService implements OnModuleInit {
   /**
    * 登记用户当前有效的 refresh token（登录/刷新时调用）
    * 同一用户仅保留最新一条，旧的自动失效
+   *
+   * 原子性保证：使用 MULTI/EXEC pipeline 一次性执行 del + hSet + expire，
+   * 避免中途崩溃导致无 TTL 的 key 永驻 Redis
+   *
    * @param userId
    * @param jti        refresh token id
    * @param exp        过期时间戳（秒）
@@ -72,12 +76,14 @@ export class RedisService implements OnModuleInit {
   async registerRefreshToken(userId: number, jti: string, exp: number): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
     const ttl = Math.max(exp - now, 1);
+    const key = `refresh:valid:${userId}`;
 
-    // 先删除旧的（确保单点登录轮换）
-    await this.client.del(`refresh:valid:${userId}`);
-    // 使用 hash 结构以便同时存储 jti 与原始 token（轮换时需要比对）
-    await this.client.hSet(`refresh:valid:${userId}`, { jti });
-    await this.client.expire(`refresh:valid:${userId}`, ttl);
+    // 使用 pipeline 保证原子性（del + hSet + expire 一起执行）
+    await this.client.multi()
+      .del(key)
+      .hSet(key, { jti })
+      .expire(key, ttl)
+      .exec();
   }
 
   /**

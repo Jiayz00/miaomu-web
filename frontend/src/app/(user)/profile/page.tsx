@@ -1,24 +1,64 @@
-// 个人中心：个人信息、我的收藏、询价记录
+// 个人中心：个人信息编辑、修改密码、我的收藏、询价记录、退出登录
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User as UserIcon, Heart, MessageSquare, Mail, Shield } from 'lucide-react';
+import {
+  User as UserIcon,
+  Heart,
+  MessageSquare,
+  Mail,
+  Shield,
+  LogOut,
+  Save,
+  Key,
+  Camera,
+  Loader2,
+  Phone,
+  AtSign,
+} from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { InlineLoading } from '@/components/Loading';
 import { useAuth } from '@/hooks/use-auth';
 import { useFavorites } from '@/hooks/use-favorites';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { cn, formatPrice, formatDateTime, getMainImage } from '@/lib/utils';
 import type { ChatRoom } from '@/lib/types';
 
-type Tab = 'profile' | 'favorites' | 'inquiries';
+type Tab = 'profile' | 'security' | 'favorites' | 'inquiries';
 
 function ProfileContent() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const [tab, setTab] = useState<Tab>('profile');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 个人信息编辑表单
+  const [profileForm, setProfileForm] = useState({
+    username: user?.username || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // 修改密码表单
+  const [pwdForm, setPwdForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // 头像上传
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  // 退出登录
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const { data: favorites, isLoading: favLoading } = useFavorites();
   const { data: rooms, isLoading: roomLoading } = useQuery<ChatRoom[]>({
@@ -31,9 +71,102 @@ function ProfileContent() {
 
   const tabs: { key: Tab; label: string; icon: typeof UserIcon }[] = [
     { key: 'profile', label: '个人信息', icon: UserIcon },
+    { key: 'security', label: '账号安全', icon: Key },
     { key: 'favorites', label: '我的收藏', icon: Heart },
     { key: 'inquiries', label: '询价记录', icon: MessageSquare },
   ];
+
+  // 头像上传处理
+  const handleAvatarUpload = useCallback(
+    async (files: FileList) => {
+      const file = files[0];
+      if (!file) return;
+      setAvatarUploading(true);
+      setProfileMsg(null);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post<{ data: { avatar: string } }>(
+          '/auth/avatar',
+          formData
+        );
+        const updated = res.data ?? res;
+        updateProfile({ avatar: updated.avatar });
+        setProfileMsg({ type: 'success', text: '头像更新成功' });
+      } catch (err) {
+        setProfileMsg({
+          type: 'error',
+          text: err instanceof ApiError ? err.message : '头像上传失败',
+        });
+      } finally {
+        setAvatarUploading(false);
+      }
+    },
+    [updateProfile]
+  );
+
+  // 个人信息保存
+  const handleProfileSave = async () => {
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      await updateProfile({
+        username: profileForm.username,
+        email: profileForm.email,
+        phone: profileForm.phone || undefined,
+      });
+      setProfileMsg({ type: 'success', text: '个人信息更新成功' });
+    } catch (err) {
+      setProfileMsg({
+        type: 'error',
+        text: err instanceof ApiError ? err.message : '更新失败，请重试',
+      });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  // 修改密码
+  const handlePasswordChange = async () => {
+    setPwdMsg(null);
+    if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+      setPwdMsg({ type: 'error', text: '两次输入的新密码不一致' });
+      return;
+    }
+    if (pwdForm.newPassword.length < 8) {
+      setPwdMsg({ type: 'error', text: '新密码至少 8 位' });
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await changePassword({
+        oldPassword: pwdForm.oldPassword,
+        newPassword: pwdForm.newPassword,
+      });
+      setPwdMsg({
+        type: 'success',
+        text: '密码修改成功，即将跳转登录页...',
+      });
+      // 后端已撤销所有 refresh token，前端已登出，跳转登录页
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+    } catch (err) {
+      setPwdMsg({
+        type: 'error',
+        text: err instanceof ApiError ? err.message : '密码修改失败',
+      });
+    } finally {
+      setPwdSaving(false);
+    }
+  };
+
+  // 退出登录
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await logout();
+    router.push('/');
+  };
 
   return (
     <div className="pt-28">
@@ -46,25 +179,86 @@ function ProfileContent() {
         </div>
 
         <div className="mx-auto max-w-5xl">
-          {/* 用户概览 */}
+          {/* 用户概览 - 头像可点击上传 */}
           <div className="mb-8 flex items-center gap-6 border border-text-muted/15 bg-surface p-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary font-serif text-2xl text-background">
-              {user?.username.charAt(0).toUpperCase()}
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary font-serif text-3xl text-background transition-all hover:opacity-80 disabled:opacity-50"
+                aria-label="更换头像"
+              >
+                {user?.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatar}
+                    alt={user.username}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{user?.username.charAt(0).toUpperCase()}</span>
+                )}
+                <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                  {avatarUploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  ) : (
+                    <Camera className="h-5 w-5 text-white" strokeWidth={1.5} />
+                  )}
+                </span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleAvatarUpload(e.target.files);
+                    e.target.value = '';
+                  }
+                }}
+              />
             </div>
             <div className="flex-1">
               <h2 className="font-serif text-2xl text-primary">{user?.username}</h2>
-              <p className="text-sm text-text-muted">{user?.email}</p>
+              <p className="flex items-center gap-2 text-sm text-text-muted">
+                <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {user?.email}
+              </p>
+              {user?.phone && (
+                <p className="flex items-center gap-2 text-sm text-text-muted">
+                  <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {user.phone}
+                </p>
+              )}
             </div>
-            {user?.role === 'ADMIN' && (
-              <span className="flex items-center gap-1.5 border border-accent/40 px-3 py-1 text-xs uppercase tracking-[0.15em] text-accent">
-                <Shield className="h-3 w-3" strokeWidth={1.5} />
-                管理员
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {user?.role === 'ADMIN' && (
+                <span className="flex items-center gap-1.5 border border-accent/40 px-3 py-1 text-xs uppercase tracking-[0.15em] text-accent">
+                  <Shield className="h-3 w-3" strokeWidth={1.5} />
+                  管理员
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex items-center gap-1.5 border border-red-500/40 px-3 py-1 text-xs uppercase tracking-[0.15em] text-red-600 transition-all hover:bg-red-50 disabled:opacity-50"
+                title="退出登录"
+              >
+                {loggingOut ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <LogOut className="h-3 w-3" strokeWidth={1.5} />
+                )}
+                退出登录
+              </button>
+            </div>
           </div>
 
           {/* 标签切换 */}
-          <div className="mb-8 flex gap-2 border-b border-text-muted/15">
+          <div className="mb-8 flex flex-wrap gap-2 border-b border-text-muted/15">
             {tabs.map((t) => (
               <button
                 key={t.key}
@@ -86,28 +280,197 @@ function ProfileContent() {
           {/* 内容区 */}
           {tab === 'profile' && (
             <div className="border border-text-muted/15 bg-surface p-8">
+              <h3 className="mb-6 font-serif text-xl text-primary">编辑个人信息</h3>
+
+              {profileMsg && (
+                <div
+                  className={cn(
+                    'mb-4 border px-4 py-3 text-sm',
+                    profileMsg.type === 'success'
+                      ? 'border-green-500/30 bg-green-50 text-green-700'
+                      : 'border-red-500/30 bg-red-50 text-red-700'
+                  )}
+                >
+                  {profileMsg.text}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
-                  <p className="label-luxury">用户名</p>
-                  <p className="text-primary">{user?.username}</p>
+                  <label className="label-luxury">用户名</label>
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} />
+                    <input
+                      type="text"
+                      value={profileForm.username}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, username: e.target.value }))
+                      }
+                      className="w-full border border-text-muted/20 bg-background py-2.5 pl-10 pr-3 text-primary outline-none transition-colors focus:border-accent"
+                      placeholder="用户名"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <p className="label-luxury">邮箱</p>
-                  <p className="flex items-center gap-2 text-primary">
-                    <Mail className="h-4 w-4 text-accent" strokeWidth={1.5} />
-                    {user?.email}
-                  </p>
+                  <label className="label-luxury">邮箱</label>
+                  <div className="relative">
+                    <AtSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} />
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, email: e.target.value }))
+                      }
+                      className="w-full border border-text-muted/20 bg-background py-2.5 pl-10 pr-3 text-primary outline-none transition-colors focus:border-accent"
+                      placeholder="邮箱"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <p className="label-luxury">角色</p>
-                  <p className="text-primary">
-                    {user?.role === 'ADMIN' ? '管理员' : '普通用户'}
-                  </p>
+                <div className="sm:col-span-2">
+                  <label className="label-luxury">手机号</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} />
+                    <input
+                      type="tel"
+                      value={profileForm.phone}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, phone: e.target.value }))
+                      }
+                      className="w-full border border-text-muted/20 bg-background py-2.5 pl-10 pr-3 text-primary outline-none transition-colors focus:border-accent"
+                      placeholder="手机号（选填）"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <p className="label-luxury">用户 ID</p>
-                  <p className="text-primary">#{user?.id}</p>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-xs text-text-muted">
+                  角色：{user?.role === 'ADMIN' ? '管理员' : '普通用户'} · ID #{user?.id}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleProfileSave}
+                  disabled={profileSaving}
+                  className="flex items-center gap-2 border border-accent bg-accent px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-primary transition-all hover:bg-accent/90 disabled:opacity-50"
+                >
+                  {profileSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" strokeWidth={1.5} />
+                  )}
+                  保存修改
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'security' && (
+            <div className="space-y-6">
+              {/* 修改密码 */}
+              <div className="border border-text-muted/15 bg-surface p-8">
+                <h3 className="mb-6 flex items-center gap-2 font-serif text-xl text-primary">
+                  <Key className="h-5 w-5 text-accent" strokeWidth={1.5} />
+                  修改密码
+                </h3>
+
+                {pwdMsg && (
+                  <div
+                    className={cn(
+                      'mb-4 border px-4 py-3 text-sm',
+                      pwdMsg.type === 'success'
+                        ? 'border-green-500/30 bg-green-50 text-green-700'
+                        : 'border-red-500/30 bg-red-50 text-red-700'
+                    )}
+                  >
+                    {pwdMsg.text}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="label-luxury">原密码</label>
+                    <input
+                      type="password"
+                      value={pwdForm.oldPassword}
+                      onChange={(e) =>
+                        setPwdForm((prev) => ({ ...prev, oldPassword: e.target.value }))
+                      }
+                      className="w-full border border-text-muted/20 bg-background px-3 py-2.5 text-primary outline-none transition-colors focus:border-accent"
+                      placeholder="请输入原密码"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-luxury">新密码</label>
+                    <input
+                      type="password"
+                      value={pwdForm.newPassword}
+                      onChange={(e) =>
+                        setPwdForm((prev) => ({ ...prev, newPassword: e.target.value }))
+                      }
+                      className="w-full border border-text-muted/20 bg-background px-3 py-2.5 text-primary outline-none transition-colors focus:border-accent"
+                      placeholder="8-32 位，需含大小写字母、数字、特殊字符"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-luxury">确认新密码</label>
+                    <input
+                      type="password"
+                      value={pwdForm.confirmPassword}
+                      onChange={(e) =>
+                        setPwdForm((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                      }
+                      className="w-full border border-text-muted/20 bg-background px-3 py-2.5 text-primary outline-none transition-colors focus:border-accent"
+                      placeholder="请再次输入新密码"
+                      autoComplete="new-password"
+                    />
+                  </div>
                 </div>
+
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={handlePasswordChange}
+                    disabled={pwdSaving}
+                    className="flex items-center gap-2 border border-accent bg-accent px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-primary transition-all hover:bg-accent/90 disabled:opacity-50"
+                  >
+                    {pwdSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Key className="h-4 w-4" strokeWidth={1.5} />
+                    )}
+                    确认修改
+                  </button>
+                </div>
+
+                <p className="mt-4 text-xs text-text-muted">
+                  修改密码后，所有设备的登录状态将自动失效，需使用新密码重新登录。
+                </p>
+              </div>
+
+              {/* 退出登录 */}
+              <div className="border border-red-200/30 bg-surface p-8">
+                <h3 className="mb-2 flex items-center gap-2 font-serif text-xl text-red-600">
+                  <LogOut className="h-5 w-5" strokeWidth={1.5} />
+                  退出登录
+                </h3>
+                <p className="mb-4 text-sm text-text-muted">
+                  退出后将清除当前设备的登录状态，需重新登录才能访问个人内容。
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="flex items-center gap-2 border border-red-500/50 bg-red-50 px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-red-600 transition-all hover:bg-red-100 disabled:opacity-50"
+                >
+                  {loggingOut ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogOut className="h-4 w-4" strokeWidth={1.5} />
+                  )}
+                  退出登录
+                </button>
               </div>
             </div>
           )}

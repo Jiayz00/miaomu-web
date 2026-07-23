@@ -44,6 +44,7 @@ export interface User {
   email: string;
   role: 'ADMIN' | 'USER';
   avatar: string | null;
+  phone?: string | null;
 }
 
 export interface ChatRoom {

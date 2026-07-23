@@ -16,22 +16,28 @@ enum Role {
 
 // 用户
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique @db.VarChar(50)
-  email     String   @unique @db.VarChar(100)
-  password  String   @db.VarChar(255)
-  role      Role     @default(USER)
-  avatar    String?  @db.VarChar(500)
-  phone     String?  @db.VarChar(20)
-  status    Int      @default(1) // 1启用 0禁用
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                   Int       @id @default(autoincrement())
+  username             String    @unique @db.VarChar(50)
+  email                String    @unique @db.VarChar(100)
+  password             String    @db.VarChar(255)
+  role                 Role      @default(USER)
+  avatar               String?   @db.VarChar(500)
+  phone                String?   @db.VarChar(20)
+  status               Int       @default(1) // 1启用 0禁用
+  // 安全字段：登录失败计数与锁定
+  failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
+  lockedUntil          DateTime? @map("locked_until") // 锁定截止时间，null 表示未锁定
+  lastLoginAt          DateTime? @map("last_login_at") // 最后登录时间
+  passwordChangedAt    DateTime  @default(now()) @map("password_changed_at") // 密码修改时间，用于强制旧 token 失效
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   favorites  Favorite[]
   chatRooms  ChatRoom[]   @relation("UserRooms")
   messages   ChatMessage[]
   viewLogs   ViewLog[]
 
+  @@index([lockedUntil])
   @@map("users")
 }
 

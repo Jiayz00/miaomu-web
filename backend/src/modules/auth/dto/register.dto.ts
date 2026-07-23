@@ -22,9 +22,17 @@ export class RegisterDto {
   @Length(5, 100)
   email!: string;
 
-  @ApiProperty({ description: '密码', example: 'Pass1234', minLength: 6, maxLength: 32 })
+  @ApiProperty({
+    description: '密码（需 8-32 位，必须包含大小写字母、数字、特殊字符）',
+    example: 'Penjing@2024',
+    minLength: 8,
+    maxLength: 32,
+  })
   @IsString()
-  @Length(6, 32, { message: '密码长度需在 6-32 之间' })
+  @Length(8, 32, { message: '密码长度需在 8-32 之间' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,32}$/, {
+    message: '密码必须包含大小写字母、数字和特殊字符',
+  })
   password!: string;
 
   @ApiPropertyOptional({ description: '手机号', example: '13800138000' })

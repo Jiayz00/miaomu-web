@@ -123,13 +123,22 @@ export function Header() {
               >
                 <span
                   className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full border text-xs font-medium',
+                    'flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border text-xs font-medium',
                     isTransparent
                       ? 'border-background/40 text-background'
                       : 'border-accent/40 text-accent'
                   )}
                 >
-                  {user.username.charAt(0).toUpperCase()}
+                  {user.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatar}
+                      alt={user.username}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{user.username.charAt(0).toUpperCase()}</span>
+                  )}
                 </span>
               </button>
 
