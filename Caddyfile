@@ -1,0 +1,45 @@
+{
+	admin 127.0.0.1:2019
+}
+
+# 示例：其他站点（按需替换为真实域名）
+# supervise.example.com {
+# 	encode zstd gzip
+# 	reverse_proxy 127.0.0.1:8090
+# }
+
+# 盆景平台 - HTTPS 直接访问（无端口后缀）
+# 部署时将 penjing.example.com 替换为真实域名
+# Caddy 自动申请 Let's Encrypt 证书，通过 SNI 区分多域名
+penjing.example.com {
+	encode zstd gzip
+
+	# 安全头
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+	}
+
+	# 盆景平台 - API 后端
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# 盆景平台 - WebSocket (询价聊天)
+	handle /socket.io/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# 盆景平台 - 上传文件
+	handle /uploads/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# 盆景平台 - 前端
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

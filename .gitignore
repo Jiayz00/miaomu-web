@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# NestJS
+backend/dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Prisma
+backend/prisma/migrations/dev.db*
+
+# Uploads
+uploads/
+backend/uploads/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+nginx/ssl/*.pem
+nginx/ssl/*.key
+
+# Misc
+.cache/
+coverage/
+*.pid
+.seed
+
+# 部署产物
+penjing-deploy.tar.gz
+remote-deploy.sh

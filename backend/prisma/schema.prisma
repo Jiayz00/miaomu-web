@@ -1,0 +1,165 @@
+// 盆景平台数据库模型
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+// 用户
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique @db.VarChar(50)
+  email     String   @unique @db.VarChar(100)
+  password  String   @db.VarChar(255)
+  role      Role     @default(USER)
+  avatar    String?  @db.VarChar(500)
+  phone     String?  @db.VarChar(20)
+  status    Int      @default(1) // 1启用 0禁用
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  favorites  Favorite[]
+  chatRooms  ChatRoom[]   @relation("UserRooms")
+  messages   ChatMessage[]
+  viewLogs   ViewLog[]
+
+  @@map("users")
+}
+
+// 分类
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  slug        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+  coverImage  String?  @db.VarChar(500) @map("cover_image")
+  sort        Int      @default(0)
+  status      Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  bonsais Bonsai[]
+
+  @@map("categories")
+}
+
+// 盆景商品
+model Bonsai {
+  id         Int       @id @default(autoincrement())
+  name       String    @db.VarChar(100)
+  slug       String    @unique @db.VarChar(120)
+  description String   @db.Text
+  price      Decimal   @db.Decimal(10, 2)
+  stock      Int       @default(0)
+  origin     String    @db.VarChar(100) // 产地
+  year       Int // 年份
+  treeAge    Int?      @map("tree_age") // 树龄
+  height     Int? // 高度(cm)
+  width      Int? // 宽度(cm)
+  categoryId Int       @map("category_id")
+  status     Int       @default(1) // 1上架 0下架
+  isFeatured Boolean   @default(false) @map("is_featured")
+  viewCount  Int       @default(0) @map("view_count")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at") // 软删除
+
+  category  Category     @relation(fields: [categoryId], references: [id])
+  images    BonsaiImage[]
+  favorites Favorite[]
+  chatRooms ChatRoom[]
+  viewLogs  ViewLog[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@map("bonsais")
+}
+
+// 盆景图片
+model BonsaiImage {
+  id        Int      @id @default(autoincrement())
+  bonsaiId  Int      @map("bonsai_id")
+  url       String   @db.VarChar(500)
+  isMain    Boolean  @default(false) @map("is_main")
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bonsai Bonsai @relation(fields: [bonsaiId], references: [id], onDelete: Cascade)
+
+  @@index([bonsaiId])
+  @@map("bonsai_images")
+}
+
+// 收藏
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  bonsaiId  Int      @map("bonsai_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bonsai Bonsai @relation(fields: [bonsaiId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bonsaiId])
+  @@index([userId])
+  @@map("favorites")
+}
+
+// 聊天会话
+model ChatRoom {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  bonsaiId  Int?     @map("bonsai_id") // 可选关联盆景
+  status    Int      @default(0) // 0未处理 1已处理
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User          @relation("UserRooms", fields: [userId], references: [id])
+  bonsai   Bonsai?       @relation(fields: [bonsaiId], references: [id])
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@map("chat_rooms")
+}
+
+// 聊天消息
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  roomId    Int      @map("room_id")
+  senderId  Int      @map("sender_id")
+  content   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User     @relation(fields: [senderId], references: [id])
+
+  @@index([roomId])
+  @@map("chat_messages")
+}
+
+// 浏览日志（数据分析用）
+model ViewLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id") // 未登录为 null
+  bonsaiId  Int      @map("bonsai_id")
+  ip        String?  @db.VarChar(45)
+  userAgent String?  @db.VarChar(500) @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User?  @relation(fields: [userId], references: [id])
+  bonsai Bonsai @relation(fields: [bonsaiId], references: [id], onDelete: Cascade)
+
+  @@index([bonsaiId])
+  @@index([createdAt])
+  @@map("view_logs")
+}
