@@ -64,7 +64,7 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
       });
       // 防御后端返回异常结构
       if (!res.data?.id) {
-        throw new ApiError(0, '创建询价会话失败：服务返回数据异常');
+        throw new ApiError('创建询价会话失败：服务返回数据异常', 500);
       }
       router.push(`/chat?room=${res.data.id}`);
     } catch (err) {

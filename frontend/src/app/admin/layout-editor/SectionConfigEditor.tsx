@@ -242,7 +242,7 @@ function HeroConfig({ section, onUpdateConfig }: ConfigEditorProps) {
         label="背景图 URL"
         value={(cfg.heroImage as string) || ''}
         onChange={(v) => onUpdateConfig({ heroImage: v })}
-        placeholder="https://images.unsplash.com/..."
+        placeholder="https://picsum.photos/seed/xxx/1920/800 或 /uploads/xxx.jpg"
       />
       <TextField
         id="hero-eyebrow"

@@ -23,13 +23,14 @@ import {
 } from '@/lib/default-categories-layout';
 import type { Category, CategoriesLayoutConfig } from '@/lib/types';
 
+// 分类页兜底图（用 picsum seed URL，加载稳定且不触发 ORB）
 const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1524598171347-833e3329d8ab?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1597055181300-e3633a917e3a?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1603991832113-9a4d7a8d4c3a?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80',
+  'https://picsum.photos/seed/penjing-cat-1/800/1000',
+  'https://picsum.photos/seed/penjing-cat-2/800/1000',
+  'https://picsum.photos/seed/penjing-cat-3/800/1000',
+  'https://picsum.photos/seed/penjing-cat-4/800/1000',
+  'https://picsum.photos/seed/penjing-cat-5/800/1000',
+  'https://picsum.photos/seed/penjing-cat-6/800/1000',
 ];
 
 export default function CategoriesPage() {

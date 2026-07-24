@@ -434,6 +434,8 @@ export default function AdminCategoriesPage() {
                     )}
                     上传
                     <input
+                      id="category-cover-upload"
+                      name="category-cover"
                       type="file"
                       accept="image/*"
                       onChange={handleUpload}

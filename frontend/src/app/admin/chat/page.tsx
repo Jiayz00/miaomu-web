@@ -115,6 +115,8 @@ export default function AdminChatPage() {
             <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
               <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
               <input
+                id="admin-chat-search"
+                name="admin-chat-search"
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

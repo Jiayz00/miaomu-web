@@ -15,7 +15,23 @@ import type { BonsaiQuery } from './types';
  * - 本地开发：NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1（绝对 URL，前后端均可用）
  * - 生产同源：NEXT_PUBLIC_API_URL=/api/v1（客户端相对路径），BACKEND_URL=http://backend:4000/api/v1（SSR 用）
  */
-function resolveApiBaseUrl(): string {
+/**
+ * API 基础路径 - 运行时函数版
+ *
+ * 关键设计：必须在每次调用时计算，不能在模块顶层求值。
+ * 原因：Next.js 客户端组件会被 webpack 内联模块顶层常量，
+ * 若在顶层调用 `resolveApiBaseUrl()`，build 时会把当时的值
+ * 编译进 bundle（通常是 `/api/v1`），运行时即使容器内有
+ * `BACKEND_URL=http://backend:4000/api/v1` 也会被忽略，
+ * 导致 SSR 阶段以 `/api/v1` 回环调用自身。
+ *
+ * 优先级：
+ * 1) 服务端：process.env.BACKEND_URL（Docker 内部网络，frontend → backend 容器）
+ * 2) 服务端：process.env.NEXT_PUBLIC_API_URL（绝对 URL 时使用）
+ * 3) 客户端：相对路径 `/api/v1`（由 Caddy 反向代理转发到后端）
+ * 4) 回退：本地后端 http://localhost:4000/api/v1
+ */
+export function getApiBaseUrl(): string {
   // 服务端渲染（Node.js）：必须使用绝对 URL
   if (typeof window === 'undefined') {
     // Docker 内部网络：frontend → backend 容器
@@ -34,14 +50,14 @@ function resolveApiBaseUrl(): string {
   return '/api/v1';
 }
 
-export const API_BASE_URL = resolveApiBaseUrl();
-
 /**
  * 后端 origin（不含路径），用于将相对路径的 /uploads/ 图片 URL 转为绝对 URL
  * - SSR 时：图片 URL 需要绝对路径才能被 Node.js fetch 解析（OG 图片等）
  * - CSR 时：浏览器使用相对路径 /uploads/xxx.jpg，由 Caddy 代理
+ *
+ * 同样使用运行时函数，避免被 webpack 内联
  */
-export const BACKEND_ORIGIN = (() => {
+export function getBackendOrigin(): string {
   if (typeof window === 'undefined') {
     if (process.env.BACKEND_URL) {
       return process.env.BACKEND_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
@@ -53,7 +69,7 @@ export const BACKEND_ORIGIN = (() => {
     return 'http://localhost:4000';
   }
   return '';
-})();
+}
 
 /**
  * 公网 origin（不含路径），用于生成对外可访问的绝对 URL
@@ -66,15 +82,15 @@ export const BACKEND_ORIGIN = (() => {
  * - 生产环境：NEXT_PUBLIC_PUBLIC_ORIGIN=https://miaomu.jiayyy.cn
  * - 未配置时：回退到 BACKEND_ORIGIN（开发环境可用，生产 OG 会失效但不影响功能）
  */
-export const PUBLIC_ORIGIN = (() => {
+export function getPublicOrigin(): string {
   // 公网域名在 SSR 与 CSR 下都可用，优先读取
   const publicOrigin = process.env.NEXT_PUBLIC_PUBLIC_ORIGIN;
   if (publicOrigin) {
     return publicOrigin.replace(/\/$/, '');
   }
   // 回退到后端 origin（开发环境或未配置公网域名时）
-  return BACKEND_ORIGIN;
-})();
+  return getBackendOrigin();
+}
 
 // Socket.io 连接地址
 // 生产环境通过 Nginx 代理 /socket.io/，使用同源（空字符串表示同源）
@@ -126,8 +142,10 @@ export const ORIGIN_OPTIONS = [
   '其他',
 ] as const;
 
-// 年份选项（从 1900 年至今，覆盖百年盆景）
-export const YEAR_OPTIONS = Array.from({ length: 127 }, (_, i) => {
+// 年份选项（近 10 年，覆盖绝大多数盆景创作年份）
+// 之前生成 127 年（1900-至今）导致筛选面板 UX 灾难（超长滚动条）
+// 改为近 10 年：盆景创作常见年份范围，更早的年份通过自定义输入框选择
+export const YEAR_OPTIONS = Array.from({ length: 10 }, (_, i) => {
   const year = new Date().getFullYear() - i;
   return { value: String(year), label: `${year} 年` };
 });

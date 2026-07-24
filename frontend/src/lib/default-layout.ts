@@ -18,8 +18,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomeSection[] = [
     visible: true,
     order: 1,
     config: {
-      heroImage:
-        'https://images.unsplash.com/photo-1524598171347-833e3329d8ab?auto=format&fit=crop&w=1920&q=80',
+      heroImage: 'https://picsum.photos/seed/penjing-hero/1920/800',
       eyebrow: 'Penjing · Bonsai Art',
       ctaPrimaryText: '探索收藏',
       ctaPrimaryLink: '/bonsais',
@@ -62,8 +61,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomeSection[] = [
     visible: true,
     order: 4,
     config: {
-      image:
-        'https://images.unsplash.com/photo-1597055181300-e3633a917e3a?auto=format&fit=crop&w=1000&q=80',
+      image: 'https://picsum.photos/seed/penjing-story/1000/800',
       eyebrow: '品牌故事',
       paragraphs: [
         '盆景艺术源远流长，始于唐代，盛于明清。它以"以小见大"的艺术手法，将山川草木的壮丽浓缩于方寸之间，是中华园林艺术的瑰宝。',
@@ -120,7 +118,7 @@ export function getDefaultConfigByType(
     case 'hero':
       return {
         heroImage:
-          'https://images.unsplash.com/photo-1524598171347-833e3329d8ab?auto=format&fit=crop&w=1920&q=80',
+          'https://picsum.photos/seed/penjing-hero/1920/800',
         eyebrow: 'Penjing · Bonsai Art',
         ctaPrimaryText: '探索收藏',
         ctaPrimaryLink: '/bonsais',
@@ -156,7 +154,7 @@ export function getDefaultConfigByType(
     case 'story':
       return {
         image:
-          'https://images.unsplash.com/photo-1597055181300-e3633a917e3a?auto=format&fit=crop&w=1000&q=80',
+          'https://picsum.photos/seed/penjing-story/1000/800',
         eyebrow: '品牌故事',
         paragraphs: [
           '在这里编辑您的品牌故事...',

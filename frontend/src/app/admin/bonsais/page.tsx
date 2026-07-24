@@ -108,6 +108,8 @@ export default function AdminBonsaisPage() {
         <div className="flex flex-1 items-center gap-2">
           <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
           <input
+            id="admin-bonsai-search"
+            name="admin-bonsai-search"
             type="text"
             value={search}
             onChange={(e) => {

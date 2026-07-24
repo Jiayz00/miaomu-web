@@ -93,6 +93,8 @@ export default function AdminUsersPage() {
       <div className="mb-6 flex items-center gap-2 border border-text-muted/15 bg-surface p-4">
         <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
         <input
+          id="admin-user-search"
+          name="admin-user-search"
           type="text"
           value={search}
           onChange={(e) => {

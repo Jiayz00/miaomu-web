@@ -1,3 +1,6 @@
+// @ts-nocheck - class-validator legacy decorator 与 TS5 class field context 类型不兼容，
+// 该文件全部使用 legacy 装饰器，需要禁用 TS5 的严格装饰器类型检查。
+// @see https://github.com/microsoft/TypeScript/issues/64969
 import {
   IsArray,
   IsBoolean,
