@@ -56,6 +56,8 @@ async function bootstrap(): Promise<void> {
               scriptSrc: ["'self'"],
               styleSrc: ["'self'", "'unsafe-inline'"],
               imgSrc: ["'self'", 'data:', 'blob:'],
+              // 允许播放同源上传的视频
+              mediaSrc: ["'self'", 'blob:'],
               connectSrc: ["'self'"],
               fontSrc: ["'self'"],
               objectSrc: ["'none'"],
