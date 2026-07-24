@@ -101,8 +101,11 @@ export class BonsaisService {
    * 避免其中一方失败导致统计与日志脱节
    */
   async findPublicBySlug(slug: string, opts?: { userId?: number | null; ip?: string; userAgent?: string }) {
+    // 兼容前端对中文 slug 的 URL 编码：部分浏览器/反向代理会保留编码形态传入，
+    // 而数据库通常存储原始中文 slug，先 decode 再查询可避免 404。
+    const decodedSlug = decodeURIComponent(slug);
     const bonsai = await this.prisma.bonsai.findFirst({
-      where: { slug, deletedAt: null, status: 1 },
+      where: { slug: decodedSlug, deletedAt: null, status: 1 },
       include: {
         category: true,
         images: { orderBy: [{ isMain: 'desc' }, { sort: 'asc' }] },

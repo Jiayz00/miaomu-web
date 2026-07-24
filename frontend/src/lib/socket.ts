@@ -43,7 +43,9 @@ export function getSocket(): Socket | null {
   const socketUrl = SOCKET_URL || undefined;
   socket = io(socketUrl, {
     auth: { token },
-    transports: ['websocket'],
+    // 优先 websocket，但保留 polling fallback：
+    // 部分反向代理 / CDN 对 websocket upgrade 支持不完整，polling 兜底可避免连接失败
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,

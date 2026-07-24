@@ -47,6 +47,10 @@ function BonsaiCardImpl({
   // 防御 null/undefined stock
   const outOfStock = (bonsai.stock ?? 0) <= 0;
 
+  // URL 编码 slug，避免中文/特殊字符在部分浏览器或反向代理中未被正确编码
+  const encodedSlug = encodeURIComponent(bonsai.slug);
+  const detailPath = `/bonsais/${encodedSlug}`;
+
   // 未登录用户点击收藏：跳转登录页并带回跳地址
   // 已登录用户：正常切换收藏状态
   const handleFavorite = (e: React.MouseEvent) => {
@@ -54,8 +58,7 @@ function BonsaiCardImpl({
     e.stopPropagation();
     if (!isAuthenticated) {
       // 卡片场景下不便弹 toast，直接跳登录页带回跳
-      const redirect = `/bonsais/${bonsai.slug}`;
-      window.location.href = `/login?redirect=${encodeURIComponent(redirect)}`;
+      window.location.href = `/login?redirect=${encodeURIComponent(detailPath)}`;
       return;
     }
     if (onFavoriteToggle) {
@@ -74,7 +77,7 @@ function BonsaiCardImpl({
       className="group"
     >
       <Link
-        href={`/bonsais/${bonsai.slug}`}
+        href={detailPath}
         className="block transition-all duration-500 hover:shadow-[0_20px_50px_-20px_rgba(26,58,46,0.25)]"
         aria-label={`查看盆景：${bonsai.name}`}
       >
