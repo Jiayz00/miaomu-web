@@ -172,6 +172,9 @@ services:
       PORT: "3000"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-}
+      # 公网域名：生成 OG 图片、分享卡片等对外可访问的绝对 URL
+      # 必须与 Caddy/Nginx 中配置的域名一致
+      NEXT_PUBLIC_PUBLIC_ORIGIN: ${NEXT_PUBLIC_PUBLIC_ORIGIN:?NEXT_PUBLIC_PUBLIC_ORIGIN must be set}
       # SSR 专用：Next.js 服务端渲染时调用后端 API 的绝对 URL
       # Docker 内部网络：frontend 容器通过 service name "backend" 访问后端
       # 客户端浏览器仍使用 NEXT_PUBLIC_API_URL（相对路径，由 Caddy 代理）

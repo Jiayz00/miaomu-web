@@ -2,7 +2,7 @@
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getBackendOrigin, getPublicOrigin } from './constants';
+import { getPublicOrigin } from './constants';
 
 /**
  * 合并 Tailwind 类名，处理冲突
@@ -74,12 +74,13 @@ export function getMainImage(images: { url: string; isMain: boolean }[]): string
 }
 
 /**
- * 解析图片 URL：将相对路径（/uploads/xxx.jpg）转为绝对 URL
+ * 解析图片 URL：将相对路径（/uploads/xxx.jpg）转为可访问 URL
  *
  * 使用场景：
- * - SSR 渲染（Node.js）：相对路径无法被 fetch 解析，需转为绝对 URL
- *   - OG meta 标签、next/image 服务端优化等场景
- * - CSR 渲染（浏览器）：相对路径可正常工作（由 Caddy/Nginx 代理）
+ * - 图片/视频 src、CSS background-image 等最终由浏览器加载的资源
+ * - 浏览器天然支持相对路径，由 Caddy/Nginx 反向代理到后端 uploads 目录
+ * - 因此不需要（也不应该）在 SSR 阶段拼接 Docker 内网 backend 地址，
+ *   否则初始 HTML 会包含 http://backend:4000/uploads/...，导致客户端无法加载
  *
  * 已是绝对 URL（http/https 开头）则原样返回
  */
@@ -87,14 +88,8 @@ export function resolveImageUrl(url: string | null | undefined): string {
   if (!url) return '';
   // 已是绝对 URL，直接返回
   if (/^https?:\/\//.test(url)) return url;
-  // 相对路径：服务端拼接后端 origin，客户端原样返回（由反向代理处理）
+  // 相对路径：直接返回，浏览器会根据当前 origin 自动解析
   if (url.startsWith('/')) {
-    if (typeof window === 'undefined') {
-      const backendOrigin = getBackendOrigin();
-      if (backendOrigin) {
-        return `${backendOrigin}${url}`;
-      }
-    }
     return url;
   }
   return url;

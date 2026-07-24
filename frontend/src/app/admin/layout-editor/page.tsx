@@ -374,7 +374,7 @@ export default function LayoutEditorPage() {
           </div>
         ) : (
           <div className="mt-4 inline-flex items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
-            未激活，保存后请点击"激活"使前台生效
+            未激活，保存后请点击「激活」使前台生效
           </div>
         )}
         {hasChanges && (
@@ -519,7 +519,7 @@ export default function LayoutEditorPage() {
 
             {sortedSections.length === 0 && (
               <div className="border border-dashed border-text-muted/30 py-12 text-center text-sm text-text-muted">
-                暂无区块，点击"添加"创建
+                暂无区块，点击「添加」创建
               </div>
             )}
           </div>

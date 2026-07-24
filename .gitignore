@@ -64,6 +64,8 @@ AGENTS.md
 
 # 浏览器测试产物（截图、测试脚本、临时文件）
 .test-browser/
+ci-logs/
+ci-logs.zip
 
 # 临时 Caddy 配置
 Caddyfile.new
