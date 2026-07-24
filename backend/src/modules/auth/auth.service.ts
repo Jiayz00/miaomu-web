@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { JwtPayload } from '../../common/decorators/current-user.decorator';
@@ -17,7 +18,6 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { Role } from '@prisma/client';
 
 /**
  * 认证服务
@@ -51,52 +51,62 @@ export class AuthService {
 
   /**
    * 用户注册
-   * 1. 检查用户名/邮箱唯一性
-   * 2. bcrypt 哈希密码
-   * 3. 创建用户
-   * 4. 签发带 jti 的 access + refresh token，登记 refresh 白名单
+   * 1. bcrypt 哈希密码
+   * 2. 创建用户（由数据库 UNIQUE 约束保证用户名/邮箱唯一性）
+   * 3. 签发带 jti 的 access + refresh token，登记 refresh 白名单
+   *
+   * 并发安全：放弃 check-then-create 模式，直接依赖数据库 UNIQUE 约束，
+   * 捕获 P2002 错误转换为 ConflictException，避免竞态导致重复用户
    */
   async register(dto: RegisterDto) {
-    // 检查用户名是否已存在
-    const existUsername = await this.prisma.user.findUnique({
-      where: { username: dto.username },
-      select: { id: true },
-    });
-    if (existUsername) {
-      throw new ConflictException('用户名已被使用');
-    }
-
-    // 检查邮箱是否已存在
-    const existEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      select: { id: true },
-    });
-    if (existEmail) {
-      throw new ConflictException('邮箱已被注册');
-    }
-
     // bcrypt 哈希密码
     const hashedPassword = await bcrypt.hash(dto.password, this.BCRYPT_ROUNDS);
 
-    // 创建用户
-    const user = await this.prisma.user.create({
-      data: {
-        username: dto.username,
-        email: dto.email,
-        password: hashedPassword,
-        phone: dto.phone,
-        role: Role.USER,
-      },
+    // 创建用户（UNIQUE 约束兜底）
+    // 显式声明类型，避免隐式 any（符合 AGENTS.md 禁止 any 规范）
+    let user: Prisma.UserGetPayload<{
       select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        avatar: true,
-        phone: true,
-        createdAt: true,
-      },
-    });
+        id: true;
+        username: true;
+        email: true;
+        role: true;
+        avatar: true;
+        phone: true;
+        createdAt: true;
+      };
+    }>;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          username: dto.username,
+          email: dto.email,
+          password: hashedPassword,
+          phone: dto.phone,
+          role: Role.USER,
+        },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+          avatar: true,
+          phone: true,
+          createdAt: true,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        const target = (e.meta?.target as string[] | undefined)?.join(',') || '';
+        if (target.includes('username')) {
+          throw new ConflictException('用户名已被使用');
+        }
+        if (target.includes('email')) {
+          throw new ConflictException('邮箱已被注册');
+        }
+        throw new ConflictException('用户已存在');
+      }
+      throw e;
+    }
 
     this.logger.log(`✅ 新用户注册: ${user.username} (ID: ${user.id})`);
 
@@ -382,7 +392,7 @@ export class AuthService {
    * 用户自助更新个人信息
    * - 仅允许修改 username/email/phone/avatar
    * - role/status/password 不在此处修改（防越权）
-   * - 唯一性冲突时返回 409
+   * - 唯一性冲突由数据库 UNIQUE 约束兜底，捕获 P2002 转 409
    * - 修改 username/email 后，下次签发的 token 会带新值
    *   （当前 token 仍有效，但用户应主动刷新以获取新值）
    *
@@ -395,28 +405,6 @@ export class AuthService {
       throw new NotFoundException('用户不存在');
     }
 
-    // 检查用户名唯一性（若变更）
-    if (dto.username && dto.username !== currentUser.username) {
-      const exist = await this.prisma.user.findUnique({
-        where: { username: dto.username },
-        select: { id: true },
-      });
-      if (exist) {
-        throw new ConflictException('用户名已被使用');
-      }
-    }
-
-    // 检查邮箱唯一性（若变更）
-    if (dto.email && dto.email !== currentUser.email) {
-      const exist = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-        select: { id: true },
-      });
-      if (exist) {
-        throw new ConflictException('邮箱已被注册');
-      }
-    }
-
     // 仅更新提供的字段
     const data: Record<string, string> = {};
     if (dto.username !== undefined) data.username = dto.username;
@@ -424,20 +412,48 @@ export class AuthService {
     if (dto.phone !== undefined) data.phone = dto.phone;
     if (dto.avatar !== undefined) data.avatar = dto.avatar;
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data,
+    // 显式声明类型，避免隐式 any（符合 AGENTS.md 禁止 any 规范）
+    let updated: Prisma.UserGetPayload<{
       select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        avatar: true,
-        phone: true,
-        status: true,
-        updatedAt: true,
-      },
-    });
+        id: true;
+        username: true;
+        email: true;
+        role: true;
+        avatar: true;
+        phone: true;
+        status: true;
+        updatedAt: true;
+      };
+    }>;
+    try {
+      updated = await this.prisma.user.update({
+        where: { id: userId },
+        data,
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+          avatar: true,
+          phone: true,
+          status: true,
+          updatedAt: true,
+        },
+      });
+    } catch (e) {
+      // P2002: UNIQUE 约束冲突（用户名或邮箱已被占用）
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        const target = (e.meta?.target as string[] | undefined)?.join(',') || '';
+        if (target.includes('username')) {
+          throw new ConflictException('用户名已被使用');
+        }
+        if (target.includes('email')) {
+          throw new ConflictException('邮箱已被注册');
+        }
+        throw new ConflictException('字段冲突');
+      }
+      throw e;
+    }
 
     this.logger.log(`📝 用户更新个人信息: ${updated.username} (ID: ${userId})`);
     return updated;

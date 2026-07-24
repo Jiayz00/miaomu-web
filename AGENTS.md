@@ -233,6 +233,169 @@ Socket.io ← Nginx ← Backend
 4. **种子数据**：首次部署自动创建管理员账号 + 示例盆景数据
 5. **健康检查**：各容器配置 healthcheck，Nginx 健康检查后端
 
+## 版本管理规范（强制执行）
+
+> 本规范参考 GitLab EE、Next.js、Vue、NestJS 等高星项目的版本管理实践，
+> 结合盆景项目大小版本区分需求制定。**所有 Agent 必须严格遵守**，
+> 确保版本可回溯、小改可追溯、大改有节点、线上始终是最新稳定版的组合。
+
+### 分支模型（Git Flow 精简版）
+
+| 分支 | 用途 | 生命周期 | 保护规则 |
+|------|------|----------|----------|
+| `main` | 生产稳定版，始终可部署 | 永久 | 禁止直推，仅通过 PR 合入；合并即触发部署 |
+| `develop` | 开发集成分支，最新功能组合 | 永久 | 允许 Agent 合入，但必须通过自测 |
+| `feature/<scope>-<short-desc>` | 新功能开发 | 临时，合并后删除 | 从 `develop` 切出，PR 合回 `develop` |
+| `fix/<scope>-<short-desc>` | Bug 修复 | 临时，合并后删除 | 从 `develop` 切出，PR 合回 `develop` |
+| `hotfix/<scope>-<short-desc>` | 生产紧急修复 | 临时，合并后删除 | 从 `main` 切出，同时合回 `main` 和 `develop` |
+| `release/v<x.y.z>` | 版本预发布与验收 | 临时，发布后删除 | 从 `develop` 切出，仅允许元数据/bug 修改 |
+
+### 语义化版本（Semantic Versioning）
+
+版本号格式：`v<MAJOR>.<MINOR>.<PATCH>`，例如 `v1.2.3`
+
+| 位 | 何时递增 | 示例 |
+|----|----------|------|
+| MAJOR | 不兼容的 API/数据库变更、架构重构 | `v1.0.0` → `v2.0.0` |
+| MINOR | 向下兼容的新功能、新模块、UI 大改 | `v1.0.0` → `v1.1.0` |
+| PATCH | 向下兼容的 Bug 修复、文案、样式微调 | `v1.0.0` → `v1.0.1` |
+
+**预发布版本**（可选）：`v1.0.0-rc.1`、`v1.0.0-beta.2`，用于发布前验收。
+
+### 大版本 vs 小改动判定
+
+| 类型 | 判定标准 | 流程 |
+|------|----------|------|
+| **大版本**（新建分支 + tag） | 新增模块 / 数据库 schema 变更 / API 破坏性变更 / 前端整体重构 / 安全机制改造 | `develop` → `release/vX.Y.0` → 验收 → 合 `main` → 打 tag `vX.Y.0` |
+| **小改动**（小分支迭代溯源） | Bug 修复 / 单个组件优化 / 文案调整 / 样式微调 / 性能优化 | `develop` → `fix/feature-xxx` → PR 合 `develop`；积累若干小改后通过 release 分支打包发版 |
+| **紧急修复**（hotfix） | 生产环境线上 Bug，必须立即修复 | `main` → `hotfix/xxx` → PR 合 `main` + `develop` → 打 tag `vX.Y.Z+1` |
+
+### Tag 与 Release 规范
+
+1. **每个大版本必须打 tag**：`git tag -a vX.Y.0 -m "release: vX.Y.0 简要说明"`
+2. **每个 patch 修复也打 tag**：`git tag -a vX.Y.Z -m "fix: vX.Y.Z 修复说明"`
+3. **GitHub Release**：大版本（MINOR/MAJOR）必须在 GitHub 创建 Release，附 changelog
+4. **Changelog 来源**：使用 Conventional Commits 自动生成（见下）
+
+### Conventional Commits（强制）
+
+所有提交信息必须遵循 Conventional Commits 规范，便于自动生成 changelog 与版本判定：
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**type 取值**：
+- `feat`：新功能（对应 MINOR 版本）
+- `fix`：Bug 修复（对应 PATCH 版本）
+- `perf`：性能优化（对应 PATCH）
+- `refactor`：重构（不改变外部行为，PATCH）
+- `BREAKING CHANGE`：破坏性变更（对应 MAJOR），在 footer 标注
+- `docs` / `style` / `test` / `chore` / `security` / `ci`：不影响版本号
+
+**scope 示例**：`auth`、`bonsais`、`chat`、`dashboard`、`frontend`、`backend`、`deploy`
+
+**示例**：
+```
+feat(dashboard): 新增库存预警与询价转化漏斗
+
+- 库存预警：低库存/售罄/库存总值
+- 询价漏斗：会话→回复→处理 三级转化
+- 用户增长趋势图
+```
+
+```
+fix(auth): 修复 token 刷新竞态导致登录态抖动
+```
+
+```
+feat(api): 重构收藏接口为批量检查
+
+BREAKING CHANGE: GET /favorites/check/:id 改为 GET /favorites/batch-check?ids=
+```
+
+### 版本发布流程（大版本）
+
+```bash
+# 1. 从 develop 切出 release 分支
+git checkout develop
+git pull origin develop
+git checkout -b release/v1.2.0
+
+# 2. 在 release 分支上仅做版本号、changelog、bug 修复
+#    更新 package.json version、docs/CHANGELOG.md
+
+# 3. 验收通过后合入 main
+git checkout main
+git merge --no-ff release/v1.2.0 -m "release: 合并 v1.2.0"
+
+# 4. 打 tag
+git tag -a v1.2.0 -m "release: v1.2.0 - 库存预警与询价漏斗"
+
+# 5. 同步回 develop
+git checkout develop
+git merge --no-ff release/v1.2.0 -m "chore: 同步 v1.2.0 到 develop"
+
+# 6. 推送
+git push origin main develop v1.2.0
+
+# 7. 删除临时 release 分支
+git branch -d release/v1.2.0
+git push origin --delete release/v1.2.0
+
+# 8. 在 GitHub 创建 Release，附 changelog
+```
+
+### 小改动迭代溯源流程
+
+```bash
+# 1. 从 develop 切出小分支
+git checkout develop
+git pull origin develop
+git checkout -b fix/dashboard-response-shape
+
+# 2. 提交修复（多个小提交可追溯每一步）
+git commit -m "fix(dashboard): 修正趋势图响应结构解构"
+git commit -m "fix(dashboard): 补充空数据兜底"
+
+# 3. PR 合回 develop（保留小提交历史，不 squash）
+#    便于后续溯源每个小改的上下文
+
+# 4. 删除本地小分支
+git branch -d fix/dashboard-response-shape
+```
+
+### "最新版组合"原则
+
+- **生产环境（main）**：始终是最新稳定 tag 的状态，可随时部署
+- **开发环境（develop）**：最新功能的组合，可能未经验收
+- **小改累积发版**：develop 上积累若干 `fix/*` / `feature/*` 后，通过 release 分支打包发 PATCH 或 MINOR 版本
+- **禁止直推 main**：所有变更必须经 PR，便于 CodeRabbit 审查与回溯
+- **回溯能力**：任何线上问题可通过 `git log` + tag 快速定位引入版本，`git revert` 或回滚到上一个 tag
+
+### Agent 操作清单
+
+每个 Agent 在开始任务前必须确认：
+
+1. ✅ 当前在正确的分支（小改 → `fix/*` 或 `feature/*`；大改 → `release/*`）
+2. ✅ 分支从最新的 `develop`（或 `main` 用于 hotfix）切出
+3. ✅ 提交信息遵循 Conventional Commits
+4. ✅ 不直接推送 `main` / `develop`，通过 PR
+5. ✅ 大版本完成时打 tag 并创建 GitHub Release
+6. ✅ 临时分支合并后立即删除（本地 + 远程）
+
+### 参考实现
+
+本项目版本管理参考以下高星项目实践：
+- **Next.js**：Conventional Commits + 语义化版本 + Release 分支
+- **Vue 3**：主分支保护 + feature 分支 + PR 审查
+- **NestJS**：monorepo 分支模型 + tag 规范
+- **GitLab EE**：Git Flow 精简版 + hotfix 双向合并
+
 ## 脱敏规范（强制执行）
 
 > **此规范为最高优先级安全要求，所有 Agent 在提交代码到 GitHub 前必须严格执行。**

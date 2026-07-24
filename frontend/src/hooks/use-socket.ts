@@ -5,12 +5,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
-import {
-  connectSocket,
-  disconnectSocket,
-  onNewMessage,
-  sendMessage as emitMessage,
-} from '@/lib/socket';
+import { connectSocket, disconnectSocket, onNewMessage, sendMessage as emitMessage, joinRoom as emitJoinRoom } from '@/lib/socket';
 import type { ChatMessage } from '@/lib/types';
 
 export interface IncomingMessage {
@@ -57,6 +52,11 @@ export function useSocket() {
     emitMessage(roomId, content);
   }, []);
 
+  // 加入会话房间（切换会话时调用，否则收不到 'messageReceived' 事件）
+  const joinRoom = useCallback((roomId: number) => {
+    emitJoinRoom(roomId);
+  }, []);
+
   // 清空消息记录（切换房间时）
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -78,6 +78,7 @@ export function useSocket() {
     messages,
     currentUserId: userId,
     sendMessage,
+    joinRoom,
     clearMessages,
     disconnect,
   };

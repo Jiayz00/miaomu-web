@@ -6,10 +6,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { Request, Response, NextFunction } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 /**
  * 应用入口
@@ -20,6 +22,10 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
  * - 全局 ValidationPipe（whitelist + forbidNonWhitelisted + transform）
  * - 生产环境关闭 Swagger，避免 API 结构泄露
  * - 信任反向代理（Nginx），从 X-Forwarded-For 取真实 IP 用于限流
+ *
+ * 可观测性设计：
+ * - RequestIdMiddleware：注入 X-Request-Id（优先透传上游），全链路追踪
+ * - 日志拦截器/异常过滤器均输出 requestId，便于按请求聚合日志
  */
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -72,7 +78,15 @@ async function bootstrap(): Promise<void> {
   // 3. cookie 解析（保留以备未来使用，当前认证基于 Authorization 头）
   app.use(cookieParser());
 
-  // 4. 全局 ValidationPipe
+  // 4. Request ID 中间件（必须最早执行，为后续日志/异常提供追踪 ID）
+  //    优先使用上游 Nginx 透传的 X-Request-Id，否则本地生成 UUID
+  const requestIdMiddleware = new RequestIdMiddleware();
+  app.use(
+    (req: Request, res: Response, next: NextFunction) =>
+      requestIdMiddleware.use(req, res, next),
+  );
+
+  // 5. 全局 ValidationPipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // 自动剥离未定义的属性
@@ -84,25 +98,25 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // 5. 全局异常过滤器
+  // 6. 全局异常过滤器
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // 6. WebSocket 适配器
+  // 7. WebSocket 适配器
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  // 7. 静态文件服务：/uploads 映射到上传目录
+  // 8. 静态文件服务：/uploads 映射到上传目录
   const absUploadDir = path.resolve(uploadDir);
   if (!fs.existsSync(absUploadDir)) {
     fs.mkdirSync(absUploadDir, { recursive: true, mode: 0o750 });
   }
   app.useStaticAssets(absUploadDir, { prefix: '/uploads/' });
 
-  // 8. 全局 API 版本前缀
+  // 9. 全局 API 版本前缀
   app.setGlobalPrefix(apiPrefix, {
-    exclude: ['/uploads'], // 静态文件不添加前缀
+    exclude: ['/uploads', 'health'], // 静态文件与健康检查不添加前缀
   });
 
-  // 9. Swagger 文档（仅非生产环境开放，生产环境关闭以避免 API 结构泄露）
+  // 10. Swagger 文档（仅非生产环境开放，生产环境关闭以避免 API 结构泄露）
   if (!isProduction) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('盆景艺术展示平台 API')
@@ -130,7 +144,12 @@ async function bootstrap(): Promise<void> {
     logger.warn('🔒 生产环境已关闭 Swagger 文档');
   }
 
-  // 10. 启动监听
+  // 11. 启用优雅关闭
+  // SIGTERM/SIGINT 时触发 onModuleDestroy，让 Prisma/Redis 正常断开连接
+  // 避免容器停止时未提交事务丢失、连接残留
+  app.enableShutdownHooks();
+
+  // 12. 启动监听
   await app.listen(port);
   logger.log(`🚀 应用已启动: http://localhost:${port}`);
   logger.log(`🔐 API 前缀: /${apiPrefix}`);

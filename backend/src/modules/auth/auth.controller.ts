@@ -5,6 +5,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthService } from './auth.service';
 import { UploadService } from '../upload/upload.service';
+import { MAX_FILE_SIZE } from '../upload/upload.constants';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -94,7 +95,7 @@ export class AuthController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: MAX_FILE_SIZE },
     }),
   )
   async uploadAvatar(

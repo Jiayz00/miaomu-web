@@ -87,6 +87,14 @@ model Bonsai {
 
   @@index([categoryId])
   @@index([status])
+  @@index([isFeatured]) // 精选盆景查询加速
+  @@index([viewCount])  // 热门盆景排序加速
+  // 复合索引：列表分页查询高频组合（status + 软删除 + 时间排序）
+  @@index([status, deletedAt, createdAt])
+  // 复合索引：精选列表查询（status + 软删除 + 精选标记）
+  @@index([isFeatured, status, deletedAt])
+  // 复合索引：同分类盆景推荐查询（findRelated：categoryId + status + 软删除过滤）
+  @@index([categoryId, status, deletedAt])
   @@map("bonsais")
 }
 
@@ -117,6 +125,7 @@ model Favorite {
 
   @@unique([userId, bonsaiId])
   @@index([userId])
+  @@index([createdAt]) // 收藏趋势查询加速
   @@map("favorites")
 }
 
@@ -130,10 +139,14 @@ model ChatRoom {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user     User          @relation("UserRooms", fields: [userId], references: [id])
-  bonsai   Bonsai?       @relation(fields: [bonsaiId], references: [id])
+  bonsai   Bonsai?       @relation(fields: [bonsaiId], references: [id], onDelete: SetNull)
   messages ChatMessage[]
 
   @@index([userId])
+  @@index([status]) // 管理员筛选未处理会话加速
+  @@index([updatedAt]) // 管理员列表按 updatedAt 排序加速
+  // 复合索引：createRoom 复用会话查询（userId + bonsaiId），避免会话重复创建
+  @@index([userId, bonsaiId])
   @@map("chat_rooms")
 }
 
@@ -150,6 +163,10 @@ model ChatMessage {
   sender User     @relation(fields: [senderId], references: [id])
 
   @@index([roomId])
+  @@index([senderId]) // 按发送者查询加速
+  @@index([createdAt]) // 消息按时间排序加速
+  // 复合索引：会话消息分页查询（roomId + createdAt 降序），避免 filesort
+  @@index([roomId, createdAt])
   @@map("chat_messages")
 }
 
@@ -162,10 +179,13 @@ model ViewLog {
   userAgent String?  @db.VarChar(500) @map("user_agent")
   createdAt DateTime @default(now()) @map("created_at")
 
-  user   User?  @relation(fields: [userId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
   bonsai Bonsai @relation(fields: [bonsaiId], references: [id], onDelete: Cascade)
 
   @@index([bonsaiId])
   @@index([createdAt])
+  // 复合索引：按盆景统计浏览量趋势（bonsaiId + createdAt 范围查询）
+  @@index([bonsaiId, createdAt])
+  @@index([userId]) // 按用户查询浏览历史加速
   @@map("view_logs")
 }

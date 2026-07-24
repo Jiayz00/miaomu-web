@@ -14,7 +14,12 @@ import { ApiError } from '@/lib/api';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/';
+  const rawRedirect = searchParams.get('redirect') || '/';
+  // 安全：仅允许站内相对路径，防止开放重定向钓鱼
+  // 规则：以 / 开头且不以 // 开头（避免协议相对 URL //evil.com）
+  const isSafeRedirect =
+    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//');
+  const redirect = isSafeRedirect ? rawRedirect : '/';
   const { login } = useAuth();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -90,46 +95,61 @@ function LoginForm() {
           </div>
 
           {/* 表单 */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" aria-label="登录表单">
             <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60">
+              <label
+                htmlFor="login-account"
+                className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60"
+              >
                 账号
               </label>
               <input
+                id="login-account"
                 type="text"
                 value={account}
                 onChange={(e) => setAccount(e.target.value)}
                 placeholder="用户名或邮箱"
                 className="w-full border-0 border-b border-background/20 bg-transparent py-3 text-background placeholder:text-background/30 focus:border-accent focus:outline-none focus:ring-0"
                 autoComplete="username"
+                required
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60">
+              <label
+                htmlFor="login-password"
+                className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60"
+              >
                 密码
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请输入密码"
                   className="w-full border-0 border-b border-background/20 bg-transparent py-3 pr-10 text-background placeholder:text-background/30 focus:border-accent focus:outline-none focus:ring-0"
                   autoComplete="current-password"
+                  required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-0 top-1/2 -translate-y-1/2 text-background/40 hover:text-accent"
                   aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                 </button>
               </div>
             </div>
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-400" role="alert">
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
@@ -137,7 +157,7 @@ function LoginForm() {
               className="flex w-full items-center justify-center gap-2 bg-accent py-4 text-xs uppercase tracking-[0.3em] text-primary-dark transition-all duration-500 hover:bg-accent-light disabled:opacity-50"
             >
               {loading ? '登录中…' : '登录'}
-              {!loading && <ArrowRight className="h-4 w-4" strokeWidth={1.5} />}
+              {!loading && <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />}
             </button>
           </form>
 

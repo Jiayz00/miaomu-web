@@ -52,6 +52,9 @@ coverage/
 *.pid
 .seed
 
+# TypeScript 增量编译缓存
+*.tsbuildinfo
+
 # 部署产物
 penjing-deploy.tar.gz
 remote-deploy.sh

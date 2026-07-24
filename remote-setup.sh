@@ -53,9 +53,10 @@ if [ ! -f nginx/ssl/cert.pem ]; then
     echo "=== SSL 证书已生成 ==="
 fi
 
-# 清理旧容器和缓存
-echo "=== 清理旧容器 ==="
-docker compose down --volumes --remove-orphans 2>/dev/null || true
+# 清理旧容器和缓存（保留数据卷，避免数据丢失）
+# ⚠️ 禁止使用 --volumes，否则会删除 mysql_data/redis_data/uploads_data
+echo "=== 清理旧容器（保留数据卷）==="
+docker compose down --remove-orphans 2>/dev/null || true
 docker builder prune -f 2>/dev/null || true
 docker image prune -f 2>/dev/null || true
 
@@ -79,7 +80,7 @@ done
 
 echo "等待后端..."
 for i in $(seq 1 60); do
-    if docker exec penjing-backend wget -q --spider http://localhost:4000/api/v1/bonsais?page=1\&limit=1 2>/dev/null; then
+    if docker exec penjing-backend wget -q --spider http://localhost:4000/health/live 2>/dev/null; then
         echo "  后端就绪"
         break
     fi

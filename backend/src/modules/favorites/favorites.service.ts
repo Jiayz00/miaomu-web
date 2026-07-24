@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { resolvePagination, buildPaginatedResponse } from '../../common/dto/pagination.helper';
 
 /**
  * 收藏服务
@@ -12,15 +13,19 @@ export class FavoritesService {
 
   /**
    * 我的收藏列表（分页）
+   * 数据一致性：过滤掉已软删除的盆景，避免向用户展示失效商品
    */
   async findMyList(userId: number, query: PaginationDto) {
-    const page = Number(query.page || 1);
-    const pageSize = Number(query.limit || 10);
-    const skip = (page - 1) * pageSize;
+    const { page, pageSize, skip } = resolvePagination(query);
 
-    const where: Prisma.FavoriteWhereInput = { userId };
+    const where: Prisma.FavoriteWhereInput = {
+      userId,
+      // 软删除过滤：已删除盆景不展示在收藏列表中
+      bonsai: { deletedAt: null },
+    };
     if (query.keyword) {
       where.bonsai = {
+        deletedAt: null,
         OR: [
           { name: { contains: query.keyword } },
           { description: { contains: query.keyword } },
@@ -55,13 +60,7 @@ export class FavoritesService {
       this.prisma.favorite.count({ where }),
     ]);
 
-    return {
-      list,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
+    return buildPaginatedResponse(list, total, page, pageSize);
   }
 
   /**
@@ -105,6 +104,35 @@ export class FavoritesService {
       select: { id: true, createdAt: true },
     });
     return { favorited: !!fav, favorite: fav };
+  }
+
+  /**
+   * 批量检查收藏状态（解决列表页 N+1 查询问题）
+   * 一次性返回用户对多个盆景的收藏状态，避免每个卡片单独请求
+   *
+   * @param userId   用户 ID
+   * @param bonsaiIds 盆景 ID 列表（最多 100 个）
+   * @returns { [bonsaiId]: boolean } 收藏状态映射
+   */
+  async batchCheck(userId: number, bonsaiIds: number[]): Promise<Record<number, boolean>> {
+    // 防御：限制批量查询数量
+    const ids = bonsaiIds.slice(0, 100);
+    if (ids.length === 0) return {};
+
+    const favorites = await this.prisma.favorite.findMany({
+      where: {
+        userId,
+        bonsaiId: { in: ids },
+      },
+      select: { bonsaiId: true },
+    });
+
+    const favoritedSet = new Set(favorites.map((f) => f.bonsaiId));
+    const result: Record<number, boolean> = {};
+    for (const id of ids) {
+      result[id] = favoritedSet.has(id);
+    }
+    return result;
   }
 
   /**

@@ -18,11 +18,13 @@ import { BonsaisService } from './bonsais.service';
 import { CreateBonsaiDto } from './dto/create-bonsai.dto';
 import { UpdateBonsaiDto } from './dto/update-bonsai.dto';
 import { QueryBonsaiDto } from './dto/query-bonsai.dto';
+import { QueryLimitDto } from './dto/query-limit.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
+import { UpdateStatusDto } from '../../common/dto/status.dto';
 import { Role } from '@prisma/client';
 
 /**
@@ -44,8 +46,8 @@ export class BonsaisPublicController {
   @Public()
   @Get('featured')
   @ApiOperation({ summary: '精选盆景' })
-  findFeatured(@Query('limit') limit?: string) {
-    return this.bonsaisService.findFeatured(limit ? parseInt(limit, 10) : undefined);
+  findFeatured(@Query() query: QueryLimitDto) {
+    return this.bonsaisService.findFeatured(query.limit);
   }
 
   @Public()
@@ -53,9 +55,9 @@ export class BonsaisPublicController {
   @ApiOperation({ summary: '相关推荐盆景（同分类）' })
   findRelated(
     @Param('id', ParseIntPipe) id: number,
-    @Query('limit') limit?: string,
+    @Query() query: QueryLimitDto,
   ) {
-    return this.bonsaisService.findRelated(id, limit ? parseInt(limit, 10) : undefined);
+    return this.bonsaisService.findRelated(id, query.limit);
   }
 
   @Public()
@@ -124,8 +126,8 @@ export class BonsaisAdminController {
   @ApiOperation({ summary: '上架/下架' })
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: number,
+    @Body() dto: UpdateStatusDto,
   ) {
-    return this.bonsaisService.updateStatus(id, status);
+    return this.bonsaisService.updateStatus(id, dto.status);
   }
 }

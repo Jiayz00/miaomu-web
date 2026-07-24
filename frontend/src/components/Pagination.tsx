@@ -31,7 +31,7 @@ export function Pagination({
   if (totalPages > 1) pages.push(totalPages);
 
   return (
-    <nav className="flex items-center justify-center gap-2">
+    <nav className="flex items-center justify-center gap-2" aria-label="分页导航">
       {/* 上一页 */}
       <button
         type="button"
@@ -40,7 +40,7 @@ export function Pagination({
         className="flex h-10 w-10 items-center justify-center border border-text-muted/20 text-text-light transition-all duration-300 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-30"
         aria-label="上一页"
       >
-        ‹
+        <span aria-hidden="true">‹</span>
       </button>
 
       {pages.map((p, i) =>
@@ -48,6 +48,7 @@ export function Pagination({
           <span
             key={`ellipsis-${i}`}
             className="flex h-10 w-10 items-center justify-center text-text-muted"
+            aria-hidden="true"
           >
             …
           </span>
@@ -78,7 +79,7 @@ export function Pagination({
         className="flex h-10 w-10 items-center justify-center border border-text-muted/20 text-text-light transition-all duration-300 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-30"
         aria-label="下一页"
       >
-        ›
+        <span aria-hidden="true">›</span>
       </button>
     </nav>
   );

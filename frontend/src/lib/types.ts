@@ -73,12 +73,13 @@ export interface AuthResponse {
   user: User;
 }
 
-// 分页响应
+// 分页响应（与后端 { list, total, page, pageSize, totalPages } 结构一致）
 export interface PaginatedResponse<T> {
-  items: T[];
+  list: T[];
   total: number;
   page: number;
-  limit: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 // 通用 API 响应包装
@@ -110,6 +111,54 @@ export interface DashboardStats {
   totalUsers: number;
   totalViews: number;
   totalFavorites: number;
+  totalCategories?: number;
+  totalRooms?: number;
+  pendingRooms?: number;
+  todayViews?: number;
+  todayNewUsers?: number;
+}
+
+// 库存预警
+export interface InventoryAlert {
+  lowStockCount: number;
+  outOfStockCount: number;
+  totalStockUnits: number;
+  totalStockValue: number;
+  activeCount: number;
+  featuredCount: number;
+  lowStock: Array<{
+    id: number;
+    name: string;
+    slug: string;
+    stock: number;
+    price: string;
+  }>;
+  outOfStock: Array<{
+    id: number;
+    name: string;
+    slug: string;
+    price: string;
+  }>;
+}
+
+// 询价统计
+export interface InquiryStats {
+  pendingCount: number;
+  processedCount: number;
+  totalCount: number;
+  adminRepliedCount: number;
+  conversionRate: number;
+  processedRate: number;
+  trend: {
+    days: number;
+    list: ChartPoint[];
+  };
+}
+
+// 用户增长趋势
+export interface UserGrowthTrend {
+  days: number;
+  list: ChartPoint[];
 }
 
 // 筛选参数

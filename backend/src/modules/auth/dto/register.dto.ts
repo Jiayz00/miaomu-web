@@ -17,7 +17,7 @@ export class RegisterDto {
   @Matches(/^[a-zA-Z0-9_]+$/, { message: '用户名仅允许字母、数字、下划线' })
   username!: string;
 
-  @ApiProperty({ description: '邮箱', example: 'user@penjing.com' })
+  @ApiProperty({ description: '邮箱', example: 'user@example.com' })
   @IsEmail({}, { message: '邮箱格式不正确' })
   @Length(5, 100)
   email!: string;

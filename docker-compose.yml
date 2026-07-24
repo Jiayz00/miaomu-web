@@ -1,26 +1,91 @@
 # 盆景平台 Docker Compose 生产部署配置
 #
 # 安全设计：
-# - MySQL/Redis 仅在内部网络访问，不映射端口到宿主机
-# - 所有密码/密钥强制通过环境变量注入，不提供弱默认值
+# - Nginx 作为唯一入口（仅暴露 80/443），前端/后端/数据库/缓存不映射端口到宿主机
+# - MySQL/Redis 仅在内部网络访问
+# - 所有密码/密钥强制通过环境变量注入
 # - 后端以非 root 用户运行
 # - 上传目录独立卷，权限受限
+#
+# DevOps 设计：
+# - 所有服务配置资源限制（mem/cpu），防止单容器 OOM 拖垮宿主机
+# - 所有服务配置日志驱动（json-file + max-size/max-file），防止日志撑满磁盘
+# - 健康检查分级：liveness（进程存活）/ readiness（依赖就绪）
+# - 数据卷独立命名，便于备份与恢复
 version: '3.8'
 
+# ===== 全局日志驱动配置（被所有服务继承复用） =====
+# 单文件最大 10MB，保留 3 份历史日志，总计每服务约 30MB
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,container_name"
+
 services:
+  # ===== Nginx 反向代理（唯一入口） =====
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: penjing-nginx
+    restart: always
+    logging: *default-logging
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - uploads_data:/var/www/uploads:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - penjing-network
+    # 资源限制：Nginx 内存占用较低，预留 128MB / 0.5 核
+    mem_limit: 256m
+    mem_reservation: 64m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   # ===== MySQL 数据库 =====
   mysql:
     image: mysql:8.0
     container_name: penjing-mysql
     restart: always
+    logging: *default-logging
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}
       MYSQL_DATABASE: penjing_db
       MYSQL_USER: penjing
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set}
+    # 性能与字符集：utf8mb4 支持完整 Unicode（含 emoji），默认排序规则 utf8mb4_0900_ai_ci
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-authentication-plugin=caching_sha2_password
+      # 连接数与超时（防慢查询拖垮连接池）
+      - --max_connections=200
+      - --wait_timeout=600
+      - --interactive_timeout=600
+      # 慢查询日志（便于排查性能问题）
+      - --slow_query_log=1
+      - --long_query_time=2
     volumes:
       - mysql_data:/var/lib/mysql
     # 不映射端口到宿主机，仅通过内部网络访问
+    # 资源限制：MySQL 是内存大户，预留 512MB / 1 核
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 1.0
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -35,11 +100,27 @@ services:
     image: redis:7-alpine
     container_name: penjing-redis
     restart: always
-    # 启用密码保护
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "--appendonly", "yes"]
+    logging: *default-logging
+    # 启用密码保护 + AOF 持久化 + 内存上限与淘汰策略
+    # maxmemory 256MB：本场景仅缓存 token/限流计数，足够使用
+    # allkeys-lru：内存满时按 LRU 淘汰，保证写入可用性
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
     volumes:
       - redis_data:/data
     # 不映射端口到宿主机，仅通过内部网络访问
+    # 资源限制：Redis 内存上限 256MB，预留 128MB
+    mem_limit: 384m
+    mem_reservation: 128m
+    cpus: 0.5
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -55,6 +136,7 @@ services:
       dockerfile: Dockerfile
     container_name: penjing-backend
     restart: always
+    logging: *default-logging
     depends_on:
       mysql:
         condition: service_healthy
@@ -69,7 +151,7 @@ services:
       JWT_REFRESH_EXPIRES_IN: "7d"
       PORT: "4000"
       NODE_ENV: "production"
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       UPLOAD_DIR: "/app/uploads"
       MAX_FILE_SIZE: "5242880"
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
@@ -82,12 +164,19 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - backend_sentinel:/app/data
-    ports:
-      - "4000:4000"
+    # 不映射端口到宿主机，仅通过 Nginx 内部网络访问
+    expose:
+      - "4000"
     networks:
       - penjing-network
+    # 资源限制：NestJS + Prisma + Sharp（图片压缩），预留 256MB / 1 核
+    # Sharp 处理大图时内存峰值较高，预留缓冲
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: 1.0
     healthcheck:
-      test: ["CMD", "node", "-e", "require('net').connect({port:4000,host:'127.0.0.1'}).on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      # 使用存活检查端点，仅检测进程存活，避免依赖故障导致容器频繁重启
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:4000/health/live"]
       interval: 15s
       timeout: 10s
       retries: 15
@@ -100,6 +189,7 @@ services:
       dockerfile: Dockerfile
     container_name: penjing-frontend
     restart: always
+    logging: *default-logging
     depends_on:
       backend:
         condition: service_healthy
@@ -109,10 +199,15 @@ services:
       PORT: "3000"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-}
-    ports:
-      - "3000:3000"
+    # 不映射端口到宿主机，仅通过 Nginx 内部网络访问
+    expose:
+      - "3000"
     networks:
       - penjing-network
+    # 资源限制：Next.js standalone 模式，内存占用较低
+    mem_limit: 384m
+    mem_reservation: 128m
+    cpus: 0.5
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:3000/ || exit 1"]
       interval: 15s
@@ -125,6 +220,7 @@ volumes:
   redis_data:
   uploads_data:
   backend_sentinel:
+  nginx_logs:
 
 networks:
   penjing-network:

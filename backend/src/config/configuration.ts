@@ -22,6 +22,36 @@ function requireSecret(name: string): string {
 }
 
 /**
+ * 校验数据库连接字符串
+ *
+ * 设计原则：Fail-Fast
+ * DATABASE_URL 是 Prisma 连接的前置依赖，缺失会导致 onModuleInit 阶段
+ * 抛出难以定位的连接错误。启动期显式校验，给出清晰的失败原因。
+ * - 测试环境允许空（单测通常 mock PrismaService）
+ * - 生产/开发环境缺失或非 mysql:// 协议直接终止启动
+ */
+function requireDatabaseUrl(): string {
+  const value = process.env.DATABASE_URL;
+  if (!value) {
+    if (process.env.NODE_ENV === 'test') {
+      return '';
+    }
+    throw new Error(
+      '[CONFIG] 环境变量 DATABASE_URL 未设置。请通过 .env 文件或环境变量注入 ' +
+        'MySQL 连接字符串（如 mysql://user:pass@host:port/dbname）。',
+    );
+  }
+  if (!value.startsWith('mysql://')) {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        '[CONFIG] DATABASE_URL 必须是 mysql:// 开头的 MySQL 连接字符串。',
+      );
+    }
+  }
+  return value;
+}
+
+/**
  * 校验管理员默认密码复杂度（首次部署用）
  */
 function validateAdminPassword(): string {
@@ -52,10 +82,11 @@ function validateAdminPassword(): string {
  * 注意：JWT 密钥不提供兜底默认值，缺失或过弱将直接抛错终止启动
  */
 export default () => {
-  // 启动期校验关键密钥
+  // 启动期校验关键密钥与连接串
   const jwtSecret = requireSecret('JWT_SECRET');
   const jwtRefreshSecret = requireSecret('JWT_REFRESH_SECRET');
   const adminDefaultPassword = validateAdminPassword();
+  const databaseUrl = requireDatabaseUrl();
 
   return {
     // 服务配置
@@ -65,7 +96,7 @@ export default () => {
 
     // 数据库配置
     database: {
-      url: process.env.DATABASE_URL,
+      url: databaseUrl,
     },
 
     // Redis 配置
