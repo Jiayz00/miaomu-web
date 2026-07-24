@@ -50,6 +50,10 @@ export function ChatWidget({
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const [sendError, setSendError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // 使用 ref 跟踪 pending，避免将其作为 useEffect 依赖导致竞态
+  // 当 pending 变化时 effect 重跑，可能在 setPending([]) 完成前再次发送
+  const pendingRef = useRef<PendingMessage[]>([]);
+  pendingRef.current = pending;
 
   // 拉取历史消息
   const fetchHistory = useCallback(async () => {
@@ -80,12 +84,14 @@ export function ChatWidget({
   }, [roomId, fetchHistory, clearMessages, joinRoom]);
 
   // socket 连接恢复后重新加入当前房间并自动发送 pending 队列
+  // 仅在 isConnected / roomId 变化时触发，不依赖 pending（避免竞态）
   useEffect(() => {
     if (isConnected && roomId) {
       // 重连后需重新加入房间（socket.io 断开后房间成员关系丢失）
       joinRoom(roomId);
-      if (pending.length > 0) {
-        const toSend = [...pending];
+      // 通过 ref 读取最新 pending，避免将其作为依赖
+      if (pendingRef.current.length > 0) {
+        const toSend = [...pendingRef.current];
         setPending([]);
         toSend.forEach((msg) => {
           sendMessage(roomId, msg.content);
@@ -93,7 +99,7 @@ export function ChatWidget({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, roomId, pending, joinRoom, sendMessage]);
+  }, [isConnected, roomId, joinRoom, sendMessage]);
 
   // 合并历史 + socket 新消息（去重），用 useMemo 避免每次渲染重新构造和排序
   const allMessages = useMemo<ChatMessage[]>(() => {

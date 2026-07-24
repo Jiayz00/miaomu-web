@@ -1,5 +1,6 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient, Role, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { DEFAULT_HOMEPAGE_SECTIONS } from '../src/modules/settings/settings.service';
 
 /**
  * 种子数据脚本
@@ -249,6 +250,51 @@ async function main(): Promise<void> {
   }
 
   console.log(`✅ 创建 ${bonsais.length} 个示例盆景`);
+
+  // 4. 初始化站点设置（幂等，已存在的不覆盖）
+  //    SettingsModule.onModuleInit 也会做同样的事，但种子脚本兜底保证部署后立即可用
+  const defaultSettings = [
+    { key: 'phone', value: '+86 400-888-0000' },
+    { key: 'email', value: 'contact@penjing.example.com' },
+    { key: 'address', value: '江苏省苏州市姑苏区盆景园 88 号' },
+    { key: 'wechat', value: '' },
+    { key: 'weibo', value: '' },
+    { key: 'show_phone', value: 'true' },
+    { key: 'show_email', value: 'true' },
+    { key: 'show_address', value: 'true' },
+    { key: 'show_wechat', value: 'false' },
+    { key: 'show_weibo', value: 'false' },
+    { key: 'site_name', value: '盆景艺术 Penjing' },
+    { key: 'site_description', value: '凝练自然之美，传承千年技艺。每一株盆景，皆是时间与匠心的结晶，于方寸之间见天地。' },
+    { key: 'icp', value: '' },
+  ];
+  for (const s of defaultSettings) {
+    await prisma.siteSetting.upsert({
+      where: { key: s.key },
+      update: {},
+      create: s,
+    });
+  }
+  console.log(`✅ 初始化 ${defaultSettings.length} 项站点设置`);
+
+  // 5. 初始化默认主页布局（幂等，已存在的不覆盖）
+  //    SettingsModule.onModuleInit 也会做同样的事，但种子脚本兜底保证部署后立即可用
+  const existingLayout = await prisma.siteLayout.findUnique({
+    where: { key: 'homepage' },
+  });
+  if (!existingLayout) {
+    await prisma.siteLayout.create({
+      data: {
+        key: 'homepage',
+        sections: DEFAULT_HOMEPAGE_SECTIONS as unknown as Prisma.InputJsonValue,
+        isActive: true,
+      },
+    });
+    console.log('✅ 创建默认主页布局（homepage，5 个区块）');
+  } else {
+    console.log('ℹ️ 主页布局已存在，跳过创建');
+  }
+
   console.log('🎉 种子数据生成完成');
 }
 

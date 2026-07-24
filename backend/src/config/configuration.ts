@@ -120,7 +120,8 @@ export default () => {
     // 文件上传配置
     upload: {
       dir: process.env.UPLOAD_DIR || './uploads',
-      maxFileSize: 5 * 1024 * 1024, // 5MB
+      // 单张图片大小上限 30MB（与 upload.constants.ts 同步）
+      maxFileSize: 30 * 1024 * 1024,
       allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
     },
 

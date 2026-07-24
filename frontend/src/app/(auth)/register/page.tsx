@@ -17,7 +17,9 @@ function RegisterForm() {
   const rawRedirect = searchParams.get('redirect') || '/';
   // 安全：仅允许站内相对路径，防止开放重定向
   const isSafeRedirect =
-    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//');
+    rawRedirect.startsWith('/') &&
+    !rawRedirect.startsWith('//') &&
+    !rawRedirect.startsWith('/\\');
   const redirect = isSafeRedirect ? rawRedirect : '/';
   const { register } = useAuth();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);

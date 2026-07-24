@@ -198,17 +198,39 @@ async function request<T>(
     }
   }
 
-  let res = await fetch(url, {
-    headers,
-    ...rest,
-  });
+  // 请求超时控制：30s 后中止，避免用户无限等待
+  // 文件上传（FormData）放宽到 600s（10 分钟），支持 1GB 视频上传
+  const timeoutMs = isFormData ? 600_000 : 30_000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // 401 时尝试刷新 token 重试一次
-  if (res.status === 401 && !skipAuth) {
+  const fetchWithTimeout = async (): Promise<Response> => {
+    try {
+      return await fetch(url, {
+        headers,
+        signal: controller.signal,
+        ...rest,
+      });
+    } catch (err) {
+      // AbortError → 超时；其他 → 网络错误
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new ApiError('请求超时，请稍后重试', 408);
+      }
+      // 网络错误（断网、DNS 失败、CORS）统一包装为 ApiError
+      throw new ApiError('网络连接失败，请检查网络后重试', 0);
+    }
+  };
+
+  let res: Response;
+  try {
+    res = await fetchWithTimeout();
+
+    // 401 时尝试刷新 token 重试一次
+    if (res.status === 401 && !skipAuth) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
-      res = await fetch(url, { headers, ...rest });
+      res = await fetchWithTimeout();
     } else {
       // 区分两种失败场景：
       // 1) refresh token 确实无效（已被清除）→ 跳转登录
@@ -221,6 +243,9 @@ async function request<T>(
       // 瞬时故障：抛出 401 但不跳转，避免误登出
       throw new ApiError('认证暂时失败，请稍后重试', 401);
     }
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   // 403 权限不足：统一提示，不跳转（保留在当前页）

@@ -17,6 +17,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import configuration from './config/configuration';
 
 /**
@@ -55,6 +56,7 @@ import configuration from './config/configuration';
     UploadModule,
     AnalyticsModule,
     HealthModule,
+    SettingsModule,
   ],
   providers: [
     // 全局异常过滤器

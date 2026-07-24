@@ -117,7 +117,15 @@ export class CategoriesService {
   }
 
   /**
-   * 删除分类（检查是否仍有盆景关联）
+   * 删除分类
+   *
+   * 设计说明：
+   * - 仍有"未软删除"的盆景时阻止删除（避免误删活跃分类）
+   * - 已软删除的盆景对外不可见，但因其 categoryId 外键仍指向分类，
+   *   会阻止分类硬删除。这里在事务内先硬删除这些已软删除的盆景及其关联数据，
+   *   再删除分类，使管理员可清理废弃分类。
+   * - BonsaiImage / Favorite / ViewLog / ChatRoom 均配置了 onDelete: Cascade / SetNull，
+   *   硬删除盆景时关联数据会自动清理（ChatRoom.bonsaiId 被置为 null）
    */
   async remove(id: number) {
     await this.findAdminById(id);
@@ -129,7 +137,44 @@ export class CategoriesService {
       throw new ConflictException(`该分类下仍有 ${count} 个盆景，无法删除`);
     }
 
-    return this.prisma.category.delete({ where: { id } });
+    // 事务：先清理该分类下已软删除的盆景（含关联数据），再删除分类
+    await this.prisma.$transaction([
+      // 1. 删除关联的图片（BonsaiImage 配置了 onDelete: Cascade，
+      //    但显式删除可避免 Prisma 在某些版本下不级联的情况）
+      this.prisma.bonsaiImage.deleteMany({
+        where: {
+          bonsai: { categoryId: id, deletedAt: { not: null } },
+        },
+      }),
+      // 2. 删除收藏记录
+      this.prisma.favorite.deleteMany({
+        where: {
+          bonsai: { categoryId: id, deletedAt: { not: null } },
+        },
+      }),
+      // 3. 删除浏览日志
+      this.prisma.viewLog.deleteMany({
+        where: {
+          bonsai: { categoryId: id, deletedAt: { not: null } },
+        },
+      }),
+      // 4. 解除询价会话与盆景的关联（ChatRoom.bonsaiId 配置为 SetNull，
+      //    但显式置 null 更安全）
+      this.prisma.chatRoom.updateMany({
+        where: {
+          bonsai: { categoryId: id, deletedAt: { not: null } },
+        },
+        data: { bonsaiId: null },
+      }),
+      // 5. 硬删除已软删除的盆景
+      this.prisma.bonsai.deleteMany({
+        where: { categoryId: id, deletedAt: { not: null } },
+      }),
+      // 6. 删除分类
+      this.prisma.category.delete({ where: { id } }),
+    ]);
+
+    return { id, deleted: true };
   }
 
   /**

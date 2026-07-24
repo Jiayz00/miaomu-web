@@ -63,9 +63,11 @@ export class ChatGateway
   afterInit(): void {
     // 在网关初始化后，通过 ConfigService 动态设置 CORS origin
     // 这样可以与 HTTP CORS 配置保持单一来源
-    const origins = this.configService.get<string[]>('cors.origin') || [
-      'http://localhost:3000',
-    ];
+    // configuration.ts 中 cors.origin 是字符串，这里统一规范化为数组
+    const rawOrigin =
+      this.configService.get<string | string[]>('cors.origin') ||
+      'http://localhost:3000';
+    const origins = Array.isArray(rawOrigin) ? rawOrigin : [rawOrigin];
     if (this.server.engine && typeof this.server.engine.opts === 'object') {
       (this.server.engine.opts as Record<string, unknown>).cors = {
         origin: origins,
@@ -110,14 +112,22 @@ export class ChatGateway
         }
       }
 
-      // 将用户信息挂载到 socket
-      (client.data as Record<string, unknown>).user = payload;
+      // 数据库实时校验：被禁用账号 / 降权 / 改密后旧 token 立即失效
+      // 不直接信任 JWT 中的 role，避免降权后仍可加入 admin 房间
+      const verified = await this.chatService.verifyUserForWebSocket(
+        payload.sub,
+        payload.iat,
+      );
+
+      // 以数据库最新 role 为准重新挂载（防止 token role 过期）
+      const trustedPayload: JwtPayload = { ...payload, role: verified.role };
+      (client.data as Record<string, unknown>).user = trustedPayload;
       this.socketUserMap.set(client.id, payload.sub);
 
       // 加入以用户ID命名的房间，方便定向推送
       await client.join(`user:${payload.sub}`);
-      // 管理员额外加入 admin 房间
-      if (payload.role === 'ADMIN') {
+      // 管理员额外加入 admin 房间（基于数据库当前角色，非 token 中的角色）
+      if (verified.role === 'ADMIN') {
         await client.join('admin');
       }
 
@@ -201,6 +211,10 @@ export class ChatGateway
     const sanitizedContent = this.escapeHtml(data.content);
 
     try {
+      // 校验用户对该房间有访问权限（普通用户只能向自己的会话发消息）
+      // 防止越权向他人会话注入消息
+      await this.chatService.ensureUserRoomAccess(data.roomId, user.sub, user.role);
+
       // 持久化消息
       const message = await this.chatService.saveMessage(
         data.roomId,

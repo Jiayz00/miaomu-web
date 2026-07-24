@@ -12,6 +12,7 @@ export interface Bonsai {
   treeAge: number | null;
   height: number | null;
   width: number | null;
+  video: string | null;
   categoryId: number;
   status: number;
   isFeatured: boolean;
@@ -172,4 +173,67 @@ export interface BonsaiQuery {
   origin?: string;
   year?: number | string;
   sort?: string;
+}
+
+// ============ 主页布局（SiteLayout）============
+
+// 区块类型（与后端 HomeSectionType 保持一致）
+export type HomeSectionType =
+  | 'hero'
+  | 'featured'
+  | 'categories'
+  | 'bonsai-grid'
+  | 'showcase'
+  | 'story'
+  | 'cta'
+  | 'contact'
+  | 'stats';
+
+// 区块专属配置（按 type 不同字段不同，统一用宽松索引签名）
+export interface SectionConfig {
+  [key: string]: unknown;
+}
+
+// 单个区块配置
+export interface HomeSection {
+  id: string;
+  type: HomeSectionType;
+  title?: string;
+  subtitle?: string;
+  visible: boolean;
+  config: SectionConfig;
+  order: number;
+}
+
+// 站点布局（与后端 SiteLayout 表对应）
+export interface SiteLayout {
+  id?: number;
+  key: string;
+  sections: HomeSection[];
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ============ 分类页布局配置 ============
+
+// 排版方式
+export type CategoryLayoutMode = 'grid' | 'masonry' | 'list';
+// 卡片宽高比
+export type CategoryCardAspect = '4/5' | '1/1' | '3/4' | '16/9';
+// 排序方式
+export type CategorySortBy = 'sort' | 'name' | 'createdAt';
+
+// 分类页布局配置（与后端 CategoriesLayoutConfigDto 保持一致）
+export interface CategoriesLayoutConfig {
+  layout: CategoryLayoutMode;
+  aspect: CategoryCardAspect;
+  sortBy: CategorySortBy;
+  columns: 2 | 3 | 4;
+  showDescription: boolean;
+  showArrow: boolean;
+  showOverlay: boolean;
+  title?: string;
+  subtitle?: string;
+  eyebrow?: string;
 }

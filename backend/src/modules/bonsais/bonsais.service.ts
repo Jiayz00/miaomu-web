@@ -285,6 +285,9 @@ export class BonsaisService {
 
   /**
    * 更新盆景
+   *
+   * 图片更新策略：若 dto.images 提供，则先删除该盆景所有旧图片，再创建新图片
+   * 事务保证：删除旧图 + 创建新图原子化，避免中途失败导致图片丢失
    */
   async update(id: number, dto: UpdateBonsaiDto) {
     await this.findAdminById(id);
@@ -295,6 +298,39 @@ export class BonsaisService {
     if (categoryId !== undefined) {
       const category = await this.prisma.category.findUnique({ where: { id: categoryId } });
       if (!category) throw new NotFoundException('分类不存在');
+    }
+
+    // 若提供了 images（含空数组），则更新图片：先删后建
+    // 注意：images === undefined 表示不更新图片，images === [] 表示清空图片
+    const shouldUpdateImages = images !== undefined;
+
+    // 使用事务保证图片更新的原子性
+    if (shouldUpdateImages) {
+      return this.prisma.$transaction(async (tx) => {
+        // 1. 删除所有旧图片
+        await tx.bonsaiImage.deleteMany({ where: { bonsaiId: id } });
+        // 2. 创建新图片
+        if (images.length > 0) {
+          await tx.bonsaiImage.createMany({
+            data: images.map((img, idx) => ({
+              bonsaiId: id,
+              url: img.url,
+              isMain: img.isMain ?? false,
+              sort: img.sort ?? idx,
+            })),
+          });
+        }
+        // 3. 更新盆景其他字段
+        return tx.bonsai.update({
+          where: { id },
+          data: {
+            ...rest,
+            ...(price !== undefined && { price: new Prisma.Decimal(price) }),
+            ...(categoryId !== undefined && { categoryId }),
+          },
+          include: { images: { orderBy: [{ isMain: 'desc' }, { sort: 'asc' }] }, category: true },
+        });
+      });
     }
 
     return this.prisma.bonsai.update({

@@ -58,3 +58,12 @@ coverage/
 # 部署产物
 penjing-deploy.tar.gz
 remote-deploy.sh
+
+# AGENTS.md 含服务器部署信息，禁止提交到 GitHub
+AGENTS.md
+
+# 浏览器测试产物（截图、测试脚本、临时文件）
+.test-browser/
+
+# 临时 Caddy 配置
+Caddyfile.new

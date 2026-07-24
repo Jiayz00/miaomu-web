@@ -1,12 +1,20 @@
 // 加载骨架屏组件
 
+import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
 // 骨架行（视觉占位，对屏读器隐藏，避免误读为内容）
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
     <div
       aria-hidden="true"
+      style={style}
       className={cn(
         'animate-pulse bg-text-muted/15 rounded-sm',
         className

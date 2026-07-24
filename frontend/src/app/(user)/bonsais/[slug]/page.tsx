@@ -3,15 +3,19 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
+import { resolvePublicImageUrl } from '@/lib/utils';
 import { BonsaiDetail } from './BonsaiDetail';
 import type { Bonsai } from '@/lib/types';
 
 // 服务端数据获取：盆景详情
 async function getBonsai(slug: string): Promise<Bonsai | null> {
   try {
-    const res = await api.get<{ data: Bonsai }>(`/bonsais/${slug}`, {
-      skipAuth: true,
-    });
+    // 对 slug 进行 URL 编码，处理中文 slug 场景
+    // 后端 Prisma where 条件使用原始字符串匹配，编码后的 URL 解析回原始 slug
+    const res = await api.get<{ data: Bonsai }>(
+      `/bonsais/${encodeURIComponent(slug)}`,
+      { skipAuth: true },
+    );
     return res.data;
   } catch {
     return null;
@@ -46,7 +50,10 @@ export async function generateMetadata({
     openGraph: {
       title: bonsai.name,
       description: bonsai.description?.slice(0, 120),
-      images: bonsai.images?.[0]?.url ? [{ url: bonsai.images[0].url }] : [],
+      // OG 图片必须使用公网可达的绝对 URL（社交爬虫无法访问 Docker 内网）
+      images: bonsai.images?.[0]?.url
+        ? [{ url: resolvePublicImageUrl(bonsai.images[0].url) }]
+        : [],
     },
   };
 }
