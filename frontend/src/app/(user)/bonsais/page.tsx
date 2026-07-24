@@ -5,7 +5,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { BonsaiCard } from '@/components/BonsaiCard';
 import { FilterPanel } from '@/components/FilterPanel';
@@ -100,10 +100,18 @@ function BonsaisPageContent() {
       );
       return res.data;
     },
+    // 分类数据变化频率低，5 分钟内复用缓存，避免每次挂载都重新请求
+    staleTime: 5 * 60 * 1000,
   });
 
   // 盆景列表
-  const { data, isLoading, isFetching } = useQuery<PaginatedResponse<Bonsai>>({
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useQuery<PaginatedResponse<Bonsai>>({
     queryKey: ['bonsais', query],
     queryFn: async () => {
       const qs = new URLSearchParams();
@@ -115,11 +123,14 @@ function BonsaisPageContent() {
     },
     // 筛选/翻页时保留旧数据，避免骨架屏闪烁（背景刷新）
     placeholderData: keepPreviousData,
+    retry: 1,
   });
 
   const items = data?.list || [];
   const total = data?.total || 0;
-  const currentPage = Number(query.page);
+  // 防御 NaN：URL 中 page=abc 时回退到 1
+  const parsedPage = Number(query.page);
+  const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const totalPages = data?.totalPages || Math.ceil(total / DEFAULT_PAGE_SIZE);
 
   // 批量查询收藏状态：整个列表只发 1 个请求，避免每个卡片单独查询造成 N+1
@@ -177,7 +188,7 @@ function BonsaisPageContent() {
     <div className="pt-28">
       {/* 页头 */}
       <div className="border-b border-text-muted/10 bg-background texture-paper">
-        <div className="container-luxury py-12 text-center">
+        <div className="container-luxury py-8 text-center md:py-12">
           <span className="section-eyebrow justify-center">藏品总览</span>
           <h1 className="font-serif text-4xl text-primary md:text-5xl">
             盆景收藏
@@ -188,11 +199,11 @@ function BonsaisPageContent() {
         </div>
       </div>
 
-      <div className="container-luxury py-12">
+      <div className="container-luxury py-10 md:py-12">
         {/* 搜索栏 + 移动端筛选按钮 */}
-        <div className="mb-8 flex items-center gap-4">
+        <div className="mb-8 flex items-center gap-3 md:gap-4">
           <form onSubmit={handleSearch} className="flex flex-1 items-center gap-3">
-            <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} />
+            <Search className="h-4 w-4 flex-shrink-0 text-text-muted" strokeWidth={1.5} />
             <input
               type="text"
               value={searchInput}
@@ -206,14 +217,14 @@ function BonsaisPageContent() {
                 type="button"
                 onClick={handleClearSearch}
                 aria-label="清空搜索"
-                className="text-text-muted transition-colors hover:text-text"
+                className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-text-muted transition-colors hover:text-text active:scale-95"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
             <button
               type="submit"
-              className="hidden text-xs uppercase tracking-[0.2em] text-accent hover:text-primary sm:block"
+              className="hidden text-xs uppercase tracking-[0.2em] text-accent transition-colors hover:text-primary active:scale-95 sm:block"
             >
               搜索
             </button>
@@ -221,14 +232,14 @@ function BonsaisPageContent() {
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="flex items-center gap-2 border border-text-muted/20 px-4 py-2 text-xs uppercase tracking-[0.2em] text-text-light lg:hidden"
+            className="flex items-center gap-2 border border-text-muted/20 px-4 py-2.5 text-xs uppercase tracking-[0.2em] text-text-light transition-colors active:scale-95 lg:hidden"
           >
             <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
             筛选
           </button>
         </div>
 
-        <div className="flex gap-10">
+        <div className="flex gap-8 lg:gap-10">
           {/* 筛选面板 */}
           <FilterPanel
             categories={categories || []}
@@ -237,9 +248,25 @@ function BonsaisPageContent() {
           />
 
           {/* 盆景网格 */}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             {isLoading ? (
               <BonsaiGridSkeleton count={8} />
+            ) : isError ? (
+              <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
+                <AlertCircle className="mb-4 h-10 w-10 text-accent" strokeWidth={1.5} />
+                <p className="font-serif text-2xl text-primary">加载失败</p>
+                <p className="mt-2 text-sm text-text-muted">
+                  网络异常或服务暂不可用，请稍后重试
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="mt-6 inline-flex items-center gap-2 border border-accent px-6 py-3 text-xs uppercase tracking-[0.2em] text-accent transition-colors hover:bg-accent hover:text-primary active:scale-95"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  重新加载
+                </button>
+              </div>
             ) : items.length > 0 ? (
               <>
                 {/* 背景刷新时的顶部进度条 */}
@@ -248,7 +275,7 @@ function BonsaisPageContent() {
                     正在更新…
                   </div>
                 )}
-                <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8 xl:grid-cols-4">
                   {items.map((bonsai, i) => (
                     <BonsaiCard
                       key={bonsai.id}
@@ -260,7 +287,7 @@ function BonsaisPageContent() {
                   ))}
                 </div>
                 {totalPages > 1 && (
-                  <div className="mt-16">
+                  <div className="mt-12 md:mt-16">
                     <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
@@ -283,10 +310,11 @@ function BonsaisPageContent() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (debounceRef.current) clearTimeout(debounceRef.current);
                       setSearchInput('');
                       router.push(pathname, { scroll: false });
                     }}
-                    className="mt-6 inline-flex items-center gap-2 border border-accent px-6 py-3 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
+                    className="mt-6 inline-flex items-center gap-2 border border-accent px-6 py-3 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary active:scale-95"
                   >
                     清空筛选条件
                   </button>

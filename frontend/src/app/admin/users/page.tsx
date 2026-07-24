@@ -9,9 +9,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Shield, User as UserIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Shield, User as UserIcon, ChevronLeft, ChevronRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import { cn, formatDate } from '@/lib/utils';
+import { useDebounced } from '@/hooks/use-debounced';
+import { cn, formatDate, resolveImageUrl } from '@/lib/utils';
 import type { User } from '@/lib/types';
 
 interface AdminUser extends User {
@@ -33,14 +34,16 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // 搜索防抖
+  const debouncedSearch = useDebounced(search, 400);
 
-  const { data, isLoading } = useQuery<UsersResponse>({
-    queryKey: ['admin-users', { search, page }],
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<UsersResponse>({
+    queryKey: ['admin-users', { debouncedSearch, page }],
     queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set('page', String(page));
       qs.set('limit', String(PAGE_SIZE));
-      if (search) qs.set('keyword', search);
+      if (debouncedSearch) qs.set('keyword', debouncedSearch);
       const res = await api.get<{ data: UsersResponse }>(
         `/admin/users?${qs.toString()}`
       );
@@ -56,6 +59,11 @@ export default function AdminUsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
+    onError: (err) => {
+      alert(err instanceof ApiError ? err.message : '操作失败，请重试');
+      // 失败时回滚 UI
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
   });
 
   const handleToggle = async (user: AdminUser) => {
@@ -65,7 +73,8 @@ export default function AdminUsersPage() {
         status: user.status === 0 ? 1 : 0,
       });
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : '操作失败');
+      // onError 已处理提示，吞掉避免未捕获 promise rejection
+      void err;
     }
   };
 
@@ -118,6 +127,26 @@ export default function AdminUsersPage() {
                   加载中…
                 </td>
               </tr>
+            ) : isError ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <AlertCircle className="h-8 w-8 text-red-500" strokeWidth={1.5} aria-hidden="true" />
+                    <p className="text-sm text-red-600" role="alert">
+                      {error instanceof ApiError ? error.message : '加载失败，请稍后重试'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      disabled={isFetching}
+                      className="flex items-center gap-1.5 border border-text-muted/30 px-4 py-1.5 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                    >
+                      <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
+                      重试
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ) : users.length > 0 ? (
               users.map((user) => (
                 <tr key={user.id} className="text-sm transition-colors hover:bg-background/50">
@@ -127,7 +156,7 @@ export default function AdminUsersPage() {
                         {user.avatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={user.avatar}
+                            src={resolveImageUrl(user.avatar)}
                             alt={user.username}
                             className="h-full w-full object-cover"
                           />

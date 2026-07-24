@@ -5,8 +5,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Plus, Search, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Eye, AlertCircle, RefreshCw } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
+import { useDebounced } from '@/hooks/use-debounced';
 import { cn, formatPrice, formatDate, getMainImage } from '@/lib/utils';
 import type { Bonsai, Category, PaginatedResponse } from '@/lib/types';
 
@@ -16,6 +17,8 @@ export default function AdminBonsaisPage() {
   const [page, setPage] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState('');
   const limit = 10;
+  // 搜索防抖：避免每个按键都触发请求
+  const debouncedSearch = useDebounced(search, 400);
 
   // 分类
   const { data: categories } = useQuery<Category[]>({
@@ -27,13 +30,13 @@ export default function AdminBonsaisPage() {
   });
 
   // 列表
-  const { data, isLoading } = useQuery<PaginatedResponse<Bonsai>>({
-    queryKey: ['admin-bonsais', { search, page, categoryFilter }],
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<PaginatedResponse<Bonsai>>({
+    queryKey: ['admin-bonsais', { debouncedSearch, page, categoryFilter }],
     queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set('page', String(page));
       qs.set('limit', String(limit));
-      if (search) qs.set('keyword', search);
+      if (debouncedSearch) qs.set('keyword', debouncedSearch);
       if (categoryFilter) qs.set('categoryId', categoryFilter);
       const res = await api.get<{ data: PaginatedResponse<Bonsai> }>(
         `/admin/bonsais?${qs.toString()}`
@@ -50,6 +53,9 @@ export default function AdminBonsaisPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-bonsais'] });
     },
+    onError: (err) => {
+      alert(err instanceof ApiError ? err.message : '删除失败');
+    },
   });
 
   // 上下架
@@ -60,6 +66,11 @@ export default function AdminBonsaisPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-bonsais'] });
     },
+    onError: (err) => {
+      // 失败时回滚 UI（invalidateQueries 会重新拉取真实状态）
+      alert(err instanceof ApiError ? err.message : '操作失败，请重试');
+      queryClient.invalidateQueries({ queryKey: ['admin-bonsais'] });
+    },
   });
 
   const handleDelete = async (bonsai: Bonsai) => {
@@ -67,7 +78,8 @@ export default function AdminBonsaisPage() {
     try {
       await deleteMutation.mutateAsync(bonsai.id);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : '删除失败');
+      // onError 已处理提示，这里吞掉避免未捕获 promise rejection
+      void err;
     }
   };
 
@@ -146,6 +158,26 @@ export default function AdminBonsaisPage() {
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center text-sm text-text-muted">
                   加载中…
+                </td>
+              </tr>
+            ) : isError ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <AlertCircle className="h-8 w-8 text-red-500" strokeWidth={1.5} aria-hidden="true" />
+                    <p className="text-sm text-red-600" role="alert">
+                      {error instanceof ApiError ? error.message : '加载失败，请稍后重试'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      disabled={isFetching}
+                      className="flex items-center gap-1.5 border border-text-muted/30 px-4 py-1.5 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                    >
+                      <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
+                      重试
+                    </button>
+                  </div>
                 </td>
               </tr>
             ) : items.length > 0 ? (

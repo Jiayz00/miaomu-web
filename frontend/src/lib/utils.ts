@@ -2,6 +2,7 @@
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { BACKEND_ORIGIN, PUBLIC_ORIGIN } from './constants';
 
 /**
  * 合并 Tailwind 类名，处理冲突
@@ -69,7 +70,53 @@ export function timeAgo(date: string | Date): string {
  */
 export function getMainImage(images: { url: string; isMain: boolean }[]): string {
   const main = images?.find((img) => img.isMain);
-  return main?.url || images?.[0]?.url || '';
+  return resolveImageUrl(main?.url || images?.[0]?.url || '');
+}
+
+/**
+ * 解析图片 URL：将相对路径（/uploads/xxx.jpg）转为绝对 URL
+ *
+ * 使用场景：
+ * - SSR 渲染（Node.js）：相对路径无法被 fetch 解析，需转为绝对 URL
+ *   - OG meta 标签、next/image 服务端优化等场景
+ * - CSR 渲染（浏览器）：相对路径可正常工作（由 Caddy/Nginx 代理）
+ *
+ * 已是绝对 URL（http/https 开头）则原样返回
+ */
+export function resolveImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  // 已是绝对 URL，直接返回
+  if (/^https?:\/\//.test(url)) return url;
+  // 相对路径：服务端拼接后端 origin，客户端原样返回（由反向代理处理）
+  if (url.startsWith('/')) {
+    if (typeof window === 'undefined' && BACKEND_ORIGIN) {
+      return `${BACKEND_ORIGIN}${url}`;
+    }
+    return url;
+  }
+  return url;
+}
+
+/**
+ * 解析为公网可访问的图片 URL
+ *
+ * 专为对外暴露的场景设计（OG 元数据、分享卡片、邮件链接等）：
+ * - 社交平台爬虫无法访问 Docker 内网地址（http://backend:4000）
+ * - 必须使用公网域名（NEXT_PUBLIC_PUBLIC_ORIGIN）
+ *
+ * 与 resolveImageUrl 的差异：
+ * - resolveImageUrl: SSR 用内网地址（Docker 内部 fetch），CSR 用相对路径
+ * - resolvePublicImageUrl: SSR 与 CSR 都用公网域名（外部可访问）
+ */
+export function resolvePublicImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  // 已是绝对 URL，直接返回
+  if (/^https?:\/\//.test(url)) return url;
+  // 相对路径：拼接公网 origin（CSR 下也使用公网域名，因为 OG 是 SSR 生成）
+  if (url.startsWith('/')) {
+    return PUBLIC_ORIGIN ? `${PUBLIC_ORIGIN}${url}` : url;
+  }
+  return url;
 }
 
 /**
@@ -103,13 +150,15 @@ export function toQueryString(params: Record<string, unknown>): string {
 
 /**
  * 数字动画：将目标数字逐步增长
+ * 返回取消函数，用于在组件卸载时停止动画，避免内存泄漏
  */
 export function animateValue(
   from: number,
   to: number,
   duration: number,
   callback: (value: number) => void
-): void {
+): () => void {
+  let rafId = 0;
   const start = performance.now();
   const step = (now: number) => {
     const progress = Math.min((now - start) / duration, 1);
@@ -117,9 +166,10 @@ export function animateValue(
     const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
     const current = Math.floor(from + (to - from) * eased);
     callback(current);
-    if (progress < 1) requestAnimationFrame(step);
+    if (progress < 1) rafId = requestAnimationFrame(step);
   };
-  requestAnimationFrame(step);
+  rafId = requestAnimationFrame(step);
+  return () => cancelAnimationFrame(rafId);
 }
 
 /**
