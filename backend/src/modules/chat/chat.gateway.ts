@@ -63,9 +63,11 @@ export class ChatGateway
   afterInit(): void {
     // 在网关初始化后，通过 ConfigService 动态设置 CORS origin
     // 这样可以与 HTTP CORS 配置保持单一来源
-    const origins = this.configService.get<string[]>('cors.origin') || [
-      'http://localhost:3000',
-    ];
+    // configuration.ts 中 cors.origin 是字符串，这里统一规范化为数组
+    const rawOrigin =
+      this.configService.get<string | string[]>('cors.origin') ||
+      'http://localhost:3000';
+    const origins = Array.isArray(rawOrigin) ? rawOrigin : [rawOrigin];
     if (this.server.engine && typeof this.server.engine.opts === 'object') {
       (this.server.engine.opts as Record<string, unknown>).cors = {
         origin: origins,

@@ -58,3 +58,6 @@ coverage/
 # 部署产物
 penjing-deploy.tar.gz
 remote-deploy.sh
+
+# AGENTS.md 含服务器部署信息，禁止提交到 GitHub
+AGENTS.md
