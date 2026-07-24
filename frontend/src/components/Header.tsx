@@ -7,12 +7,12 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, User, LogOut, Heart, LayoutDashboard } from 'lucide-react';
+import { Menu, X, User, LogOut, Heart, LayoutDashboard, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useMounted } from '@/app/providers';
 import { useAuth } from '@/hooks/use-auth';
 import { NAV_LINKS } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, resolveImageUrl } from '@/lib/utils';
 
 export function Header() {
   const pathname = usePathname();
@@ -40,16 +40,27 @@ export function Header() {
     setUserMenuOpen(false);
   }, [pathname]);
 
-  // 点击外部关闭用户菜单
+  // 点击外部关闭用户菜单 + ESC 关闭（WCAG 2.1.2）
   useEffect(() => {
     if (!userMenuOpen) return;
-    const handler = (e: MouseEvent) => {
+    const clickHandler = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setUserMenuOpen(false);
+        // 焦点回到触发按钮，便于键盘用户继续操作
+        userMenuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+      }
+    };
+    document.addEventListener('mousedown', clickHandler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('mousedown', clickHandler);
+      document.removeEventListener('keydown', keyHandler);
+    };
   }, [userMenuOpen]);
 
   // ESC 关闭移动端菜单并把焦点还回触发按钮（WCAG 2.1.2）
@@ -77,10 +88,23 @@ export function Header() {
   const isHome = pathname === '/';
   const isTransparent = isHome && !scrolled;
 
+  const [loggingOut, setLoggingOut] = useState(false);
   const handleLogout = async () => {
-    await logout();
-    router.push('/');
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+      router.push('/');
+    }
   };
+
+  // 头像加载失败时回退到首字母
+  const [avatarError, setAvatarError] = useState(false);
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar]);
 
   return (
     <header
@@ -96,7 +120,7 @@ export function Header() {
         <Link
           href="/"
           className={cn(
-            'font-serif text-2xl font-medium tracking-wide transition-colors duration-500',
+            'font-serif text-xl font-medium tracking-wide transition-colors duration-500 md:text-2xl',
             isTransparent ? 'text-background' : 'text-primary'
           )}
         >
@@ -164,12 +188,13 @@ export function Header() {
                       : 'border-accent/40 text-accent'
                   )}
                 >
-                  {user.avatar ? (
+                  {user.avatar && !avatarError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={user.avatar}
+                      src={resolveImageUrl(user.avatar)}
                       alt={user.username}
                       className="h-full w-full object-cover"
+                      onError={() => setAvatarError(true)}
                     />
                   ) : (
                     <span aria-hidden="true">{user.username.charAt(0).toUpperCase()}</span>
@@ -199,7 +224,7 @@ export function Header() {
                     <Link
                       href="/profile"
                       role="menuitem"
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                     >
                       <User className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       个人中心
@@ -207,7 +232,7 @@ export function Header() {
                     <Link
                       href="/favorites"
                       role="menuitem"
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                     >
                       <Heart className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       我的收藏
@@ -216,7 +241,7 @@ export function Header() {
                       <Link
                         href="/admin/dashboard"
                         role="menuitem"
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                       >
                         <LayoutDashboard className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                         管理后台
@@ -225,10 +250,15 @@ export function Header() {
                     <button
                       type="button"
                       onClick={handleLogout}
+                      disabled={loggingOut}
                       role="menuitem"
-                      className="flex w-full items-center gap-3 border-t border-text-muted/10 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
+                      className="flex w-full items-center gap-3 border-t border-text-muted/10 px-4 py-3 text-sm text-text-light transition-colors hover:bg-background hover:text-primary disabled:opacity-50"
                     >
-                      <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                      {loggingOut ? (
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} aria-hidden="true" />
+                      ) : (
+                        <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                      )}
                       退出登录
                     </button>
                   </motion.div>
@@ -264,7 +294,7 @@ export function Header() {
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
           className={cn(
-            'lg:hidden',
+            '-mr-2 flex h-11 w-11 items-center justify-center rounded-full transition-colors active:scale-95 lg:hidden',
             isTransparent ? 'text-background' : 'text-primary'
           )}
           aria-label={mobileOpen ? '关闭菜单' : '打开菜单'}
@@ -294,28 +324,43 @@ export function Header() {
               className="container-luxury flex flex-col gap-1 py-6"
               aria-label="移动端主导航"
             >
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="border-b border-text-muted/10 py-3 text-sm text-text-light transition-colors hover:text-primary"
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <div className="mt-4 flex gap-3">
+              {NAV_LINKS.map((link) => {
+                const active =
+                  link.href === '/'
+                    ? pathname === '/'
+                    : pathname.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center justify-between border-b border-text-muted/10 py-3.5 text-sm transition-colors',
+                      active
+                        ? 'text-accent'
+                        : 'text-text-light hover:text-primary'
+                    )}
+                  >
+                    {link.label}
+                    {active && (
+                      <span className="h-px w-8 bg-accent" aria-hidden="true" />
+                    )}
+                  </Link>
+                );
+              })}
+              <div className="mt-4 flex flex-col gap-3">
                 {mounted && isAuthenticated && user ? (
                   <>
                     <Link
                       href="/profile"
-                      className="flex-1 border border-accent py-3 text-center text-xs uppercase tracking-[0.2em] text-accent"
+                      className="border border-accent py-3.5 text-center text-xs uppercase tracking-[0.2em] text-accent transition-colors active:scale-[0.98]"
                     >
                       个人中心
                     </Link>
                     {user.role === 'ADMIN' && (
                       <Link
                         href="/admin/dashboard"
-                        className="flex-1 border border-primary bg-primary py-3 text-center text-xs uppercase tracking-[0.2em] text-background"
+                        className="border border-primary bg-primary py-3.5 text-center text-xs uppercase tracking-[0.2em] text-background transition-colors active:scale-[0.98]"
                       >
                         管理后台
                       </Link>
@@ -323,8 +368,10 @@ export function Header() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex-1 border border-text-muted/30 py-3 text-center text-xs uppercase tracking-[0.2em] text-text-light"
+                      disabled={loggingOut}
+                      className="flex items-center justify-center gap-2 border border-text-muted/30 py-3.5 text-center text-xs uppercase tracking-[0.2em] text-text-light transition-colors active:scale-[0.98] disabled:opacity-50"
                     >
+                      {loggingOut && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
                       退出
                     </button>
                   </>
@@ -332,13 +379,13 @@ export function Header() {
                   <>
                     <Link
                       href="/login"
-                      className="flex-1 border border-text-muted/30 py-3 text-center text-xs uppercase tracking-[0.2em] text-text-light"
+                      className="border border-text-muted/30 py-3.5 text-center text-xs uppercase tracking-[0.2em] text-text-light transition-colors active:scale-[0.98]"
                     >
                       登录
                     </Link>
                     <Link
                       href="/register"
-                      className="flex-1 border border-accent bg-accent py-3 text-center text-xs uppercase tracking-[0.2em] text-primary"
+                      className="border border-accent bg-accent py-3.5 text-center text-xs uppercase tracking-[0.2em] text-primary transition-colors active:scale-[0.98]"
                     >
                       注册
                     </Link>

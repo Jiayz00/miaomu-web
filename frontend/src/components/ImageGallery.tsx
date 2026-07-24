@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, resolveImageUrl } from '@/lib/utils';
 
 interface ImageGalleryProps {
   images: { id: number; url: string; isMain: boolean; sort: number }[];
@@ -44,7 +44,7 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
             className="absolute inset-0"
           >
             <Image
-              src={current.url}
+              src={resolveImageUrl(current.url)}
               alt={alt}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -57,7 +57,22 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
 
       {/* 缩略图列表 */}
       {sorted.length > 1 && (
-        <div className="grid grid-cols-5 gap-3" role="group" aria-label="图片缩略图选择">
+        <div
+          className="grid grid-cols-5 gap-3"
+          role="group"
+          aria-label="图片缩略图选择"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            // 键盘左右方向键导航（WCAG 2.1.1）
+            if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              setActiveIndex((prev) => Math.min(prev + 1, sorted.length - 1));
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              setActiveIndex((prev) => Math.max(prev - 1, 0));
+            }
+          }}
+        >
           {sorted.map((img, i) => (
             <button
               key={img.id}
@@ -65,6 +80,7 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
               onClick={() => setActiveIndex(i)}
               className={cn(
                 'relative aspect-square overflow-hidden transition-all duration-300',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                 i === activeIndex
                   ? 'ring-2 ring-accent ring-offset-2 ring-offset-background'
                   : 'opacity-60 hover:opacity-100'
@@ -73,7 +89,7 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
               aria-current={i === activeIndex ? 'true' : undefined}
             >
               <Image
-                src={img.url}
+                src={resolveImageUrl(img.url)}
                 alt={`${alt} 缩略图 ${i + 1}`}
                 fill
                 sizes="100px"

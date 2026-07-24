@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -25,7 +25,7 @@ import { InlineLoading } from '@/components/Loading';
 import { useAuth } from '@/hooks/use-auth';
 import { useFavorites } from '@/hooks/use-favorites';
 import { api, ApiError } from '@/lib/api';
-import { cn, formatPrice, formatDateTime, getMainImage } from '@/lib/utils';
+import { cn, formatPrice, formatDateTime, getMainImage, resolveImageUrl } from '@/lib/utils';
 import type { ChatRoom } from '@/lib/types';
 
 type Tab = 'profile' | 'security' | 'favorites' | 'inquiries';
@@ -42,6 +42,17 @@ function ProfileContent() {
     email: user?.email || '',
     phone: user?.phone || '',
   });
+  // 监听 user 变化，挂载后异步获取的用户数据需同步到表单
+  // 避免页面刷新时 user 初始为 null，表单显示空值
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        username: user.username || '',
+        email: user.email || '',
+        phone: user.phone || '',
+      });
+    }
+  }, [user]);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -214,7 +225,7 @@ function ProfileContent() {
                 {user?.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={user.avatar}
+                    src={resolveImageUrl(user.avatar)}
                     alt={user.username}
                     className="h-full w-full object-cover"
                   />

@@ -4,7 +4,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, X, Star, Loader2 } from 'lucide-react';
+import { Upload, X, Star, Loader2, Video } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -21,16 +21,19 @@ function Field({
   htmlFor,
   children,
   className,
+  required,
 }: {
   label: string;
   htmlFor: string;
   children: React.ReactNode;
   className?: string;
+  required?: boolean;
 }) {
   return (
     <div className={className}>
       <label htmlFor={htmlFor} className="label-luxury">
         {label}
+        {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
       </label>
       {children}
     </div>
@@ -40,6 +43,22 @@ function Field({
 interface BonsaiImageItem {
   url: string;
   isMain: boolean;
+  sort: number;
+}
+
+// 中文 -> 拼音 slug 转换（简易实现，足够盆景名称场景）
+// 若名称含英文，则小写化并用连字符分隔
+function generateSlug(name: string): string {
+  const base = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+  // 中文名直接用时间戳后缀保证唯一性，避免拼音库依赖
+  const hasChinese = /[\u4e00-\u9fa5]/.test(base);
+  const suffix = hasChinese ? `-${Date.now().toString(36)}` : '';
+  return `${base || 'bonsai'}${suffix}`.slice(0, 120);
 }
 
 interface BonsaiFormProps {
@@ -52,6 +71,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
   const queryClient = useQueryClient();
   const isEdit = !!initialData;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // 分类列表
   const { data: categories } = useQuery<Category[]>({
@@ -77,12 +97,16 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
     isFeatured: initialData?.isFeatured || false,
   });
 
+  // 视频字段（独立于主表单，便于上传/清除）
+  const [videoUrl, setVideoUrl] = useState<string>(initialData?.video || '');
+  const [videoUploading, setVideoUploading] = useState(false);
+
   // 图片列表
   const [images, setImages] = useState<BonsaiImageItem[]>(
     initialData?.images
       ? [...initialData.images]
           .sort((a, b) => a.sort - b.sort)
-          .map((img) => ({ url: img.url, isMain: img.isMain }))
+          .map((img, idx) => ({ url: img.url, isMain: img.isMain, sort: img.sort ?? idx }))
       : []
   );
 
@@ -109,21 +133,46 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
   }, [dirty]);
 
   // 图片上传
+  // 后端 uploadMultiple 返回 { urls: Array<{url, filename}> }，
+  // 经 TransformInterceptor 包装为 { success, data: { urls: [...] }, message }
   const handleUpload = useCallback(async (files: FileList) => {
+    // 客户端预校验：类型、大小，避免无效请求浪费带宽
+    const MAX_IMG_SIZE = 30 * 1024 * 1024; // 30MB（与后端一致）
+    const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const fileArr = Array.from(files);
+    for (const f of fileArr) {
+      if (!ALLOWED_IMG_TYPES.includes(f.type)) {
+        setError(`图片 ${f.name} 类型不支持，仅允许 JPG/PNG/WebP`);
+        return;
+      }
+      if (f.size > MAX_IMG_SIZE) {
+        setError(`图片 ${f.name} 超过 30MB 大小限制`);
+        return;
+      }
+    }
     setUploading(true);
     setError('');
     try {
       const formData = new FormData();
-      Array.from(files).forEach((file) => formData.append('files', file));
-      const res = await api.post<{ data: { url: string }[] }>(
+      fileArr.forEach((file) => formData.append('files', file));
+      const res = await api.post<{ data: { urls: Array<{ url: string; filename: string }> } }>(
         '/admin/upload/multiple',
         formData
       );
-      const newImages: BonsaiImageItem[] = res.data.map((item, idx) => ({
-        url: item.url,
-        isMain: images.length === 0 && idx === 0,
-      }));
-      setImages((prev) => [...prev, ...newImages]);
+      // res.data 是 { urls: [...] }，需取 res.data.urls
+      const uploadedUrls = res.data?.urls ?? [];
+      if (uploadedUrls.length === 0) {
+        throw new Error('上传成功但未返回 URL');
+      }
+      setImages((prev) => {
+        const startIdx = prev.length;
+        const newImages: BonsaiImageItem[] = uploadedUrls.map((item, idx) => ({
+          url: item.url,
+          isMain: prev.length === 0 && idx === 0,
+          sort: startIdx + idx,
+        }));
+        return [...prev, ...newImages];
+      });
       // 图片新增属于表单变更，需标记 dirty
       setDirty(true);
     } catch (err) {
@@ -131,13 +180,62 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
     } finally {
       setUploading(false);
     }
-  }, [images.length]);
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       handleUpload(e.target.files);
       e.target.value = '';
     }
+  };
+
+  // 视频上传
+  // 后端 uploadVideo 返回 { url, filename }，
+  // 经 TransformInterceptor 包装为 { success, data: { url, filename }, message }
+  const handleVideoUpload = useCallback(async (file: File) => {
+    // 客户端预校验：类型、大小
+    const MAX_VIDEO_SIZE = 1024 * 1024 * 1024; // 1GB（与后端一致）
+    const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      setError(`视频类型不支持，仅允许 MP4/WebM/MOV`);
+      return;
+    }
+    if (file.size > MAX_VIDEO_SIZE) {
+      setError(`视频 ${file.name} 超过 1GB 大小限制`);
+      return;
+    }
+    setVideoUploading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post<{ data: { url: string; filename: string } }>(
+        '/admin/upload/video',
+        formData
+      );
+      const url = res.data?.url;
+      if (!url) {
+        throw new Error('上传成功但未返回 URL');
+      }
+      setVideoUrl(url);
+      setDirty(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '视频上传失败');
+    } finally {
+      setVideoUploading(false);
+    }
+  }, []);
+
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleVideoUpload(e.target.files[0]);
+      e.target.value = '';
+    }
+  };
+
+  const removeVideo = () => {
+    setVideoUrl('');
+    setDirty(true);
   };
 
   // 拖拽上传
@@ -161,7 +259,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
   // 删除图片
   const removeImage = (index: number) => {
     setImages((prev) => {
-      const next = prev.filter((_, i) => i !== index);
+      const next = prev.filter((_, i) => i !== index)
+        // 重新计算 sort，保证连续
+        .map((img, i) => ({ ...img, sort: i }));
       // 若删的是主图，则将第一张设为主图
       if (next.length > 0 && !next.some((img) => img.isMain)) {
         next[0].isMain = true;
@@ -188,26 +288,77 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       setError('请至少上传一张图片');
       return;
     }
+    // 价格校验：必填且不能为负
+    const priceNum = Number(form.price);
+    if (form.price === '' || isNaN(priceNum)) {
+      setError('请输入有效的价格');
+      return;
+    }
+    if (priceNum < 0) {
+      setError('价格不能为负数');
+      return;
+    }
+    // 库存校验：非负整数
+    const stockNum = Number(form.stock);
+    if (isNaN(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
+      setError('库存必须为非负整数');
+      return;
+    }
+    // 树龄/高度/宽度：可空，填写时必须为非负数
+    if (form.treeAge !== '' && form.treeAge != null) {
+      const t = Number(form.treeAge);
+      if (isNaN(t) || t < 0) {
+        setError('树龄必须为非负数');
+        return;
+      }
+    }
+    if (form.height !== '' && form.height != null) {
+      const h = Number(form.height);
+      if (isNaN(h) || h < 0) {
+        setError('高度必须为非负数');
+        return;
+      }
+    }
+    if (form.width !== '' && form.width != null) {
+      const w = Number(form.width);
+      if (isNaN(w) || w < 0) {
+        setError('宽度必须为非负数');
+        return;
+      }
+    }
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: form.name,
       description: form.description,
-      price: form.price,
-      stock: Number(form.stock),
+      price: priceNum,
+      stock: stockNum,
       origin: form.origin,
       year: Number(form.year),
       treeAge: form.treeAge ? Number(form.treeAge) : null,
       height: form.height ? Number(form.height) : null,
       width: form.width ? Number(form.width) : null,
+      video: videoUrl || null,
       categoryId: Number(form.categoryId),
       isFeatured: form.isFeatured,
-      images: images.map((img) => ({ url: img.url, isMain: img.isMain })),
+      images: images.map((img, idx) => ({
+        url: img.url,
+        isMain: img.isMain,
+        sort: idx,
+      })),
     };
+
+    // 仅新增时传 slug（UpdateBonsaiDto 已 OmitType 排除 slug，
+    // 后端 forbidNonWhitelisted 会拒绝编辑 payload 中的 slug 字段）
+    if (!isEdit) {
+      payload.slug = generateSlug(form.name);
+    }
 
     setSaving(true);
     try {
       if (isEdit && initialData) {
         await api.put(`/admin/bonsais/${initialData.id}`, payload);
+        // 编辑后失效详情缓存，避免下次进入看到旧数据
+        queryClient.invalidateQueries({ queryKey: ['admin-bonsai', initialData.id] });
       } else {
         await api.post('/admin/bonsais', payload);
       }
@@ -281,18 +432,22 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
           </Field>
 
           <Field label="产地" htmlFor="bonsai-origin">
-            <select
+            {/* 使用 input + datalist 实现"可选择也可手动输入" */}
+            <input
               id="bonsai-origin"
+              type="text"
+              list="origin-options"
               value={form.origin}
               onChange={(e) => updateField('origin', e.target.value)}
               className={inputClass}
-            >
+              placeholder="选择或输入产地"
+              autoComplete="off"
+            />
+            <datalist id="origin-options">
               {ORIGIN_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
+                <option key={o} value={o} />
               ))}
-            </select>
+            </datalist>
           </Field>
         </div>
       </div>
@@ -301,25 +456,30 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       <div className="border border-text-muted/15 bg-surface p-6">
         <h3 className="mb-6 font-serif text-xl text-primary">规格信息</h3>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="价格 (¥)" htmlFor="bonsai-price">
+          <Field label="价格 (¥)" htmlFor="bonsai-price" required>
             <input
               id="bonsai-price"
               type="number"
               step="0.01"
+              min="0"
               value={form.price}
               onChange={(e) => updateField('price', e.target.value)}
               className={inputClass}
               placeholder="0.00"
+              required
             />
           </Field>
-          <Field label="库存" htmlFor="bonsai-stock">
+          <Field label="库存" htmlFor="bonsai-stock" required>
             <input
               id="bonsai-stock"
               type="number"
+              min="0"
+              step="1"
               value={form.stock}
               onChange={(e) => updateField('stock', e.target.value)}
               className={inputClass}
               placeholder="0"
+              required
             />
           </Field>
           <Field label="年份" htmlFor="bonsai-year">
@@ -340,6 +500,8 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             <input
               id="bonsai-tree-age"
               type="number"
+              min="0"
+              step="1"
               value={form.treeAge}
               onChange={(e) => updateField('treeAge', e.target.value)}
               className={inputClass}
@@ -350,6 +512,8 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             <input
               id="bonsai-height"
               type="number"
+              min="0"
+              step="0.1"
               value={form.height}
               onChange={(e) => updateField('height', e.target.value)}
               className={inputClass}
@@ -360,6 +524,8 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             <input
               id="bonsai-width"
               type="number"
+              min="0"
+              step="0.1"
               value={form.width}
               onChange={(e) => updateField('width', e.target.value)}
               className={inputClass}
@@ -487,14 +653,101 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
         )}
       </div>
 
+      {/* 视频上传（可选） */}
+      <div className="border border-text-muted/15 bg-surface p-6">
+        <h3 className="mb-2 font-serif text-xl text-primary">展示视频</h3>
+        <p className="mb-6 text-xs text-text-muted">
+          可选。支持 mp4 / webm / mov，最大 1GB
+        </p>
+
+        {videoUrl ? (
+          <div className="space-y-4">
+            <div className="relative overflow-hidden border border-text-muted/20">
+              <video
+                src={videoUrl}
+                controls
+                className="aspect-video w-full bg-primary-dark"
+                preload="metadata"
+              >
+                您的浏览器不支持视频播放。
+              </video>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={videoUploading}
+                className="border border-text-muted/30 px-4 py-2 text-xs uppercase tracking-[0.2em] text-text-light transition-colors hover:border-text-light disabled:opacity-50"
+              >
+                {videoUploading ? '上传中…' : '替换视频'}
+              </button>
+              <button
+                type="button"
+                onClick={removeVideo}
+                disabled={videoUploading}
+                className="flex items-center gap-1.5 border border-red-300 px-4 py-2 text-xs uppercase tracking-[0.2em] text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                移除视频
+              </button>
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                onChange={handleVideoFileChange}
+                className="hidden"
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => videoInputRef.current?.click()}
+            disabled={videoUploading}
+            aria-label="上传盆景展示视频"
+            className={cn(
+              'flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              'border-text-muted/30 hover:border-accent/50'
+            )}
+          >
+            {videoUploading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
+            ) : (
+              <Video className="h-8 w-8 text-text-muted" strokeWidth={1} aria-hidden="true" />
+            )}
+            <p className="text-sm text-text-light">
+              {videoUploading ? '上传中…' : '点击上传展示视频'}
+            </p>
+            <p className="text-xs text-text-muted">mp4 / webm / mov，最大 1GB</p>
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+              onChange={handleVideoFileChange}
+              className="hidden"
+              aria-hidden="true"
+            />
+          </button>
+        )}
+      </div>
+
       {/* 提交按钮 */}
       <div className="flex items-center gap-4">
         <button
           type="submit"
-          disabled={saving || uploading}
+          disabled={saving || uploading || videoUploading}
           className="flex items-center gap-2 bg-primary px-8 py-3 text-sm uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light disabled:opacity-50"
         >
-          {saving ? '保存中…' : uploading ? '图片上传中…' : isEdit ? '保存修改' : '创建盆景'}
+          {saving
+            ? '保存中…'
+            : uploading
+            ? '图片上传中…'
+            : videoUploading
+            ? '视频上传中…'
+            : isEdit
+            ? '保存修改'
+            : '创建盆景'}
         </button>
         <button
           type="button"

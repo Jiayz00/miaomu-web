@@ -12,6 +12,8 @@ import {
   FolderTree,
   Users,
   MessageSquare,
+  Settings,
+  LayoutTemplate,
   LogOut,
   Menu,
   X,
@@ -33,6 +35,8 @@ const NAV_ITEMS = [
   { href: '/admin/categories', label: '分类管理', icon: FolderTree },
   { href: '/admin/users', label: '用户管理', icon: Users },
   { href: '/admin/chat', label: '询价管理', icon: MessageSquare },
+  { href: '/admin/settings', label: '站点设置', icon: Settings },
+  { href: '/admin/layout-editor', label: '主页布局', icon: LayoutTemplate },
 ];
 
 /**

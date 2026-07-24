@@ -1,13 +1,27 @@
-// 分类管理：列表 + 新增/编辑弹窗
+// 分类管理：列表 + 新增/编辑弹窗 + 排版设置
 
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, X, Upload, Loader2 } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Upload,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  List as ListIcon,
+  LayoutTemplate,
+} from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, resolveImageUrl } from '@/lib/utils';
 import type { Category } from '@/lib/types';
+import { CategoriesLayoutEditor } from './CategoriesLayoutEditor';
+
+type AdminTab = 'list' | 'layout';
 
 interface CategoryForm {
   name: string;
@@ -31,6 +45,7 @@ export default function AdminCategoriesPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<AdminTab>('list');
 
   // 模态框打开时：Esc 关闭 + 锁定背景滚动（WCAG 2.1.2 No Keyboard Trap）
   useEffect(() => {
@@ -49,7 +64,8 @@ export default function AdminCategoriesPage() {
   }, [modalOpen]);
 
   // 列表
-  const { data: categories, isLoading } = useQuery<Category[]>({
+  // 注意：listError 与 form 的 error state 命名隔离，避免覆盖
+  const { data: categories, isLoading, isError, error: listError, refetch, isFetching } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: async () => {
       const res = await api.get<{ data: Category[] }>('/categories');
@@ -69,7 +85,7 @@ export default function AdminCategoriesPage() {
 
   // 编辑
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: number; payload: CategoryForm }) => {
+    mutationFn: async ({ id, payload }: { id: number; payload: Omit<CategoryForm, 'slug'> }) => {
       await api.put(`/admin/categories/${id}`, payload);
     },
     onSuccess: () => {
@@ -136,7 +152,10 @@ export default function AdminCategoriesPage() {
     setSaving(true);
     try {
       if (editing) {
-        await updateMutation.mutateAsync({ id: editing.id, payload: form });
+        // 编辑时后端 UpdateCategoryDto 不允许修改 slug（OmitType 排除），
+        // 提交前移除 slug，避免 forbidNonWhitelisted 拦截返回 400
+        const { slug: _omit, ...editPayload } = form;
+        await updateMutation.mutateAsync({ id: editing.id, payload: editPayload });
       } else {
         await createMutation.mutateAsync(form);
       }
@@ -162,23 +181,64 @@ export default function AdminCategoriesPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl text-primary">分类管理</h1>
           <p className="mt-1 text-sm text-text-muted">
-            共 {categories?.length || 0} 个分类
+            {tab === 'list'
+              ? `共 ${categories?.length || 0} 个分类`
+              : '配置用户端分类页的展示方式'}
           </p>
         </div>
+        {tab === 'list' && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-primary px-6 py-3 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            新增分类
+          </button>
+        )}
+      </div>
+
+      {/* Tab 切换 */}
+      <div className="mb-8 border-b border-text-muted/15" role="tablist" aria-label="分类管理视图">
         <button
           type="button"
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-primary px-6 py-3 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light"
+          role="tab"
+          aria-selected={tab === 'list'}
+          onClick={() => setTab('list')}
+          className={cn(
+            'flex items-center gap-2 px-5 py-3 text-xs uppercase tracking-[0.2em] transition-colors -mb-px border-b-2',
+            tab === 'list'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-text-light hover:text-primary',
+          )}
         >
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
-          新增分类
+          <ListIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          分类列表
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'layout'}
+          onClick={() => setTab('layout')}
+          className={cn(
+            'flex items-center gap-2 px-5 py-3 text-xs uppercase tracking-[0.2em] transition-colors -mb-px border-b-2',
+            tab === 'layout'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-text-light hover:text-primary',
+          )}
+        >
+          <LayoutTemplate className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          排版设置
         </button>
       </div>
 
+      {/* 列表 Tab */}
+      {tab === 'list' && (
+        <>
       {/* 列表 */}
       <div className="overflow-x-auto border border-text-muted/15 bg-surface">
         <table className="w-full">
@@ -199,6 +259,26 @@ export default function AdminCategoriesPage() {
                   加载中…
                 </td>
               </tr>
+            ) : isError ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <AlertCircle className="h-8 w-8 text-red-500" strokeWidth={1.5} aria-hidden="true" />
+                    <p className="text-sm text-red-600" role="alert">
+                      {listError instanceof ApiError ? listError.message : '加载失败，请稍后重试'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      disabled={isFetching}
+                      className="flex items-center gap-1.5 border border-text-muted/30 px-4 py-1.5 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                    >
+                      <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
+                      重试
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ) : categories && categories.length > 0 ? (
               categories.map((cat) => (
                 <tr key={cat.id} className="text-sm transition-colors hover:bg-background/50">
@@ -207,7 +287,7 @@ export default function AdminCategoriesPage() {
                       {cat.coverImage && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={cat.coverImage}
+                          src={resolveImageUrl(cat.coverImage)}
                           alt={cat.name}
                           className="h-full w-full object-cover"
                         />
@@ -307,10 +387,17 @@ export default function AdminCategoriesPage() {
                   type="text"
                   value={form.slug}
                   onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
-                  className={inputClass}
+                  className={cn(inputClass, editing && 'cursor-not-allowed bg-text-muted/5')}
                   placeholder="如：conifers"
                   required
+                  readOnly={!!editing}
+                  aria-describedby={editing ? 'slug-hint' : undefined}
                 />
+                {editing && (
+                  <p id="slug-hint" className="mt-1 text-xs text-text-muted">
+                    标识创建后不可修改
+                  </p>
+                )}
               </div>
 
               <div>
@@ -333,7 +420,7 @@ export default function AdminCategoriesPage() {
                     {form.coverImage && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={form.coverImage}
+                        src={resolveImageUrl(form.coverImage)}
                         alt="封面预览"
                         className="h-full w-full object-cover"
                       />
@@ -377,6 +464,11 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
       )}
+        </>
+      )}
+
+      {/* 排版设置 Tab */}
+      {tab === 'layout' && <CategoriesLayoutEditor />}
     </div>
   );
 }

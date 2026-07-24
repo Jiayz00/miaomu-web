@@ -2,17 +2,17 @@
 
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, MapPin, Calendar, TreePine, Ruler, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Heart, MessageCircle, MapPin, Calendar, TreePine, Ruler, ShoppingBag, ArrowRight, Video } from 'lucide-react';
 import { ImageGallery } from '@/components/ImageGallery';
 import { BonsaiCard } from '@/components/BonsaiCard';
 import { useAuthStore } from '@/stores/auth-store';
 import { useFavoriteCheck, useToggleFavorite, useFavoriteMap } from '@/hooks/use-favorites';
-import { api } from '@/lib/api';
-import { cn, formatPrice } from '@/lib/utils';
+import { api, ApiError } from '@/lib/api';
+import { cn, formatPrice, resolveImageUrl } from '@/lib/utils';
 import type { Bonsai } from '@/lib/types';
 
 interface BonsaiDetailProps {
@@ -26,6 +26,7 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
   const { data: favorited } = useFavoriteCheck(bonsai.id);
   const toggleFav = useToggleFavorite();
   const [inquiryLoading, setInquiryLoading] = useState(false);
+  const [inquiryError, setInquiryError] = useState('');
 
   // 批量查询相关推荐盆景的收藏状态，避免每个卡片单独查询造成 N+1
   const relatedIds = useMemo(
@@ -41,7 +42,13 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
   );
 
   const isFavorited = !!favorited;
-  const outOfStock = bonsai.stock <= 0;
+  // 防御 stock 为 null/undefined
+  const outOfStock = (bonsai.stock ?? 0) <= 0;
+
+  // 切换盆景时清除错误提示（组件复用场景，如 SSR 路由变化）
+  useEffect(() => {
+    setInquiryError('');
+  }, [bonsai.id]);
 
   // 询价：创建聊天会话
   const handleInquiry = async () => {
@@ -50,14 +57,19 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
       return;
     }
     setInquiryLoading(true);
+    setInquiryError('');
     try {
       const res = await api.post<{ data: { id: number } }>('/chat/rooms', {
         bonsaiId: bonsai.id,
       });
+      // 防御后端返回异常结构
+      if (!res.data?.id) {
+        throw new ApiError(0, '创建询价会话失败：服务返回数据异常');
+      }
       router.push(`/chat?room=${res.data.id}`);
-    } catch {
-      // 失败也跳到聊天页
-      router.push('/chat');
+    } catch (err) {
+      // 显示错误提示而非静默跳转，让用户感知失败并可选择重试
+      setInquiryError(err instanceof ApiError ? err.message : '创建询价会话失败，请稍后重试');
     } finally {
       setInquiryLoading(false);
     }
@@ -81,24 +93,46 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
 
   return (
     <div className="pt-24">
-      <div className="container-luxury py-12">
+      <div className="container-luxury py-10 md:py-12">
         {/* 面包屑 */}
-        <nav className="mb-10 flex items-center gap-2 text-xs text-text-muted" aria-label="面包屑导航">
-          <Link href="/" className="hover:text-accent">首页</Link>
+        <nav className="mb-8 flex items-center gap-2 text-xs text-text-muted md:mb-10" aria-label="面包屑导航">
+          <Link href="/" className="transition-colors hover:text-accent">首页</Link>
           <span aria-hidden="true">/</span>
-          <Link href="/bonsais" className="hover:text-accent">盆景收藏</Link>
+          <Link href="/bonsais" className="transition-colors hover:text-accent">盆景收藏</Link>
           <span aria-hidden="true">/</span>
           <span className="text-text-light">{bonsai.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
-          {/* 左：图片画廊 */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
+          {/* 左：图片画廊 + 视频 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-col gap-6"
           >
             <ImageGallery images={bonsai.images} alt={bonsai.name} />
+
+            {/* 展示视频（可选） */}
+            {bonsai.video && (
+              <div className="overflow-hidden border border-text-muted/15">
+                <div className="flex items-center gap-2 border-b border-text-muted/10 bg-primary-dark/5 px-4 py-3">
+                  <Video className="h-4 w-4 text-accent" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="text-xs uppercase tracking-[0.2em] text-text-light">
+                    盆景展示视频
+                  </span>
+                </div>
+                <video
+                  src={resolveImageUrl(bonsai.video)}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="aspect-video w-full bg-primary-dark"
+                >
+                  您的浏览器不支持视频播放。
+                </video>
+              </div>
+            )}
           </motion.div>
 
           {/* 右：信息 */}
@@ -111,14 +145,14 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
             {bonsai.category && (
               <span className="section-eyebrow">{bonsai.category.name}</span>
             )}
-            <h1 className="font-serif text-4xl text-primary md:text-5xl">
+            <h1 className="font-serif text-3xl text-primary md:text-4xl lg:text-5xl">
               {bonsai.name}
             </h1>
 
             {/* 价格 */}
             <div className="mt-6 flex items-baseline gap-2">
               <span className="text-sm text-text-muted">¥</span>
-              <span className="font-serif text-4xl text-accent">
+              <span className="font-serif text-3xl text-accent md:text-4xl">
                 {formatPrice(bonsai.price)}
               </span>
             </div>
@@ -152,11 +186,11 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
             </div>
 
             {/* 规格 */}
-            <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5">
+            <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 md:gap-x-8">
               {specs.map((spec) => (
                 <div key={spec.label} className="flex items-start gap-3">
-                  <spec.icon className="mt-0.5 h-4 w-4 text-accent" strokeWidth={1.5} aria-hidden="true" />
-                  <div>
+                  <spec.icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent" strokeWidth={1.5} aria-hidden="true" />
+                  <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.15em] text-text-muted">
                       {spec.label}
                     </p>
@@ -168,6 +202,22 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
 
             {/* 操作按钮 */}
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+              {inquiryError && (
+                <div
+                  className="flex w-full items-center gap-2 border border-red-300 bg-red-50 px-4 py-2.5 text-sm text-red-600"
+                  role="alert"
+                >
+                  <span className="flex-1">{inquiryError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setInquiryError('')}
+                    className="text-xs underline hover:no-underline"
+                    aria-label="关闭错误提示"
+                  >
+                    关闭
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleInquiry}
@@ -227,8 +277,8 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
 
         {/* 相关推荐 */}
         {related.length > 0 && (
-          <div className="mt-28">
-            <div className="mb-12 flex items-end justify-between">
+          <div className="mt-16 md:mt-28">
+            <div className="mb-10 flex items-end justify-between md:mb-12">
               <div>
                 <span className="section-eyebrow">同类推荐</span>
                 <h2 className="font-serif text-3xl text-primary md:text-4xl">
@@ -237,12 +287,12 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
               </div>
               <Link
                 href="/bonsais"
-                className="hidden items-center gap-2 text-sm tracking-[0.2em] text-accent hover:gap-3 sm:flex"
+                className="hidden items-center gap-2 text-sm tracking-[0.2em] text-accent transition-all hover:gap-3 sm:flex"
               >
                 查看全部 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
               {related.slice(0, 4).map((b, i) => (
                 <BonsaiCard
                   key={b.id}

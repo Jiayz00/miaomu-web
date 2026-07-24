@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -114,6 +115,44 @@ export class ChatService {
       throw new ForbiddenException('无权访问该会话');
     }
     return room;
+  }
+
+  /**
+   * WebSocket 连接鉴权辅助：查询数据库当前用户状态与角色
+   * 用于在 WS 握手时同步校验（HTTP 的 JwtStrategy.validate 不适用于 WS）
+   *
+   * 安全设计：
+   * - 被禁用账号（status=0）禁止连接，避免旧 token 在有效期内继续访问 WS
+   * - 以数据库当前 role 为准，避免 token 中的 role 过期（降权后仍可访问 admin 房间）
+   * - 校验密码修改时间，改密后旧 token 立即失效
+   *
+   * @returns 校验通过则返回数据库中最新的 role，供 gateway 重新挂载到 client.data
+   */
+  async verifyUserForWebSocket(
+    userId: number,
+    tokenIat?: number,
+  ): Promise<{ role: Role }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, status: true, role: true, passwordChangedAt: true },
+    });
+    if (!user) {
+      throw new ForbiddenException('用户不存在');
+    }
+    if (user.status === 0) {
+      throw new ForbiddenException('账号已被禁用');
+    }
+    // 校验密码是否在 token 签发后被修改过
+    if (tokenIat && user.passwordChangedAt) {
+      const passwordChangedSec = Math.floor(
+        user.passwordChangedAt.getTime() / 1000,
+      );
+      // 1 秒容差，与 JwtStrategy.validate 保持一致
+      if (tokenIat < passwordChangedSec - 1) {
+        throw new UnauthorizedException('密码已修改，请重新登录');
+      }
+    }
+    return { role: user.role };
   }
 
   /**

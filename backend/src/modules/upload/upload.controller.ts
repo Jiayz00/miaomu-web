@@ -11,7 +11,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nes
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { UploadService } from './upload.service';
-import { MAX_FILE_SIZE, MAX_FILES_PER_REQUEST } from './upload.constants';
+import { MAX_FILE_SIZE, MAX_FILES_PER_REQUEST, MAX_VIDEO_SIZE } from './upload.constants';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -87,5 +87,29 @@ export class UploadController {
   )
   uploadMultiple(@UploadedFiles() files: { files?: Express.Multer.File[] }) {
     return this.uploadService.uploadMultiple(files.files || []);
+  }
+
+  @Post('video')
+  @ApiOperation({ summary: '视频上传（最大 1GB，支持 mp4/webm/mov）' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_VIDEO_SIZE },
+    }),
+  )
+  uploadVideo(@UploadedFile() file: Express.Multer.File) {
+    return this.uploadService.uploadVideo(file);
   }
 }

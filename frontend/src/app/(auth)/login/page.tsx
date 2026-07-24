@@ -16,9 +16,11 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get('redirect') || '/';
   // 安全：仅允许站内相对路径，防止开放重定向钓鱼
-  // 规则：以 / 开头且不以 // 开头（避免协议相对 URL //evil.com）
+  // 规则：以 / 开头且不以 // 或 /\ 开头（避免协议相对 URL //evil.com 和反斜杠绕过）
   const isSafeRedirect =
-    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//');
+    rawRedirect.startsWith('/') &&
+    !rawRedirect.startsWith('//') &&
+    !rawRedirect.startsWith('/\\');
   const redirect = isSafeRedirect ? rawRedirect : '/';
   const { login } = useAuth();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);

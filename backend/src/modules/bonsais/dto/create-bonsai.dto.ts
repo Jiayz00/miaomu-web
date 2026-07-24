@@ -102,6 +102,12 @@ export class CreateBonsaiDto {
   @Min(0)
   width?: number;
 
+  @ApiPropertyOptional({ description: '展示视频 URL（mp4/webm/mov）', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  video?: string;
+
   @ApiProperty({ description: '分类 ID' })
   @Type(() => Number)
   @IsInt()

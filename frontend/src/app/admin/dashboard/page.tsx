@@ -95,7 +95,8 @@ function StatCard({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    animateValue(0, value, 1500, (v) => setDisplay(v));
+    // 返回取消函数，组件卸载或 value 变化时清理 RAF，避免内存泄漏
+    return animateValue(0, value, 1500, (v) => setDisplay(v));
   }, [value]);
 
   return (

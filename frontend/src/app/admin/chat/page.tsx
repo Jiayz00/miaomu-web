@@ -9,11 +9,11 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquare, Search, ArrowLeft, Clock } from 'lucide-react';
+import { MessageSquare, Search, ArrowLeft, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { ChatWidget, ChatRoomItem } from '@/components/ChatWidget';
 import { useAuthStore } from '@/stores/auth-store';
 import { InlineLoading } from '@/components/Loading';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { cn, getMainImage, formatDateTime } from '@/lib/utils';
 import type { ChatRoom } from '@/lib/types';
 
@@ -27,7 +27,7 @@ export default function AdminChatPage() {
   const [filterPending, setFilterPending] = useState(false);
 
   // 管理员会话列表
-  const { data: rooms, isLoading } = useQuery<ChatRoom[]>({
+  const { data: rooms, isLoading, isError, error, refetch, isFetching } = useQuery<ChatRoom[]>({
     queryKey: ['admin-chat-rooms'],
     queryFn: async () => {
       const res = await api.get<{ data: ChatRoom[] }>('/admin/chat/rooms');
@@ -128,6 +128,22 @@ export default function AdminChatPage() {
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
               <InlineLoading />
+            ) : isError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                <AlertCircle className="h-8 w-8 text-red-500" strokeWidth={1.5} aria-hidden="true" />
+                <p className="text-sm text-red-600" role="alert">
+                  {error instanceof ApiError ? error.message : '加载失败，请稍后重试'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  className="flex items-center gap-1.5 border border-text-muted/30 px-4 py-1.5 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
+                  重试
+                </button>
+              </div>
             ) : filteredRooms.length > 0 ? (
               filteredRooms.map((room) => (
                 <div key={room.id} className="relative">

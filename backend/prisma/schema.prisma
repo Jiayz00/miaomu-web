@@ -71,6 +71,7 @@ model Bonsai {
   treeAge    Int?      @map("tree_age") // 树龄
   height     Int? // 高度(cm)
   width      Int? // 宽度(cm)
+  video      String?   @db.VarChar(500) // 盆景展示视频 URL（可选）
   categoryId Int       @map("category_id")
   status     Int       @default(1) // 1上架 0下架
   isFeatured Boolean   @default(false) @map("is_featured")
@@ -96,6 +97,31 @@ model Bonsai {
   // 复合索引：同分类盆景推荐查询（findRelated：categoryId + status + 软删除过滤）
   @@index([categoryId, status, deletedAt])
   @@map("bonsais")
+}
+
+// 站点设置（键值对存储，用于联系方式、关于我们等可配置内容）
+// 使用 key-value 结构而非 JSON 字段，便于后台按 key 单独更新、按需查询
+model SiteSetting {
+  key       String   @id @db.VarChar(50) // 设置键，如 phone / email / address / show_phone
+  value     String   @db.Text // 设置值
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// 站点布局（主页可配置区块，sections 为 JSON 数组）
+// 一个 key（如 "homepage"）可对应多条记录，但同一时刻仅一条 isActive=true
+model SiteLayout {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(50) // 布局键，如 "homepage"
+  sections  Json     // 区块配置数组：[{ id, type, title, subtitle, visible, config, order }]
+  isActive  Boolean  @default(false) @map("is_active") // 是否当前激活的布局
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("site_layouts")
 }
 
 // 盆景图片
