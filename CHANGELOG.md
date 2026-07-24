@@ -8,9 +8,65 @@
 
 ## 目录
 
+- [v1.2.1](#v121---2026-07-24) — 服务器实测复测修复（SSR / ORB / 限流 / a11y）
 - [v1.2.0](#v120---2026-07-24) — 管理端布局编辑 / 视频上传 / 收藏筛选 / UI 全面优化
 - [v1.1.0](#v110---2026-07-22) — 十轮严格审查修复（安全 / QA / 性能 / a11y / DevOps）
 - [v1.0.0](#v100---2026-07-20) — 盆景艺术展示与销售平台全栈首版
+
+---
+
+## [v1.2.1] - 2026-07-24
+
+> **Tag**: [`v1.2.1`](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.1)
+> **Release**: [v1.2.1 — 服务器实测复测修复（SSR / ORB / 限流 / a11y）](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.1)
+> **范围**：PATCH 版本，修复服务器实际部署后的若干关键 bug
+
+### 修复（Fixed）
+
+#### Loop 1 服务器实测发现的问题
+
+- **[P0] SSR API_BASE_URL 编译期内联导致盆景详情页 404**
+  - `frontend/src/lib/constants.ts`：移除模块顶层 `API_BASE_URL` 常量（webpack 会在 build 时把当时的值内联进 bundle，导致 SSR 阶段容器内 `BACKEND_URL` 环境变量失效，回环调用自身）
+  - 改写为运行时函数 `getApiBaseUrl()` / `getBackendOrigin()` / `getPublicOrigin()`，每次调用实时读取环境变量
+  - `api.ts` 与 `utils.ts` 在 `request()` / `getApiBaseUrl()` 内每次调用函数取值
+- **[P1] ORB 拦截 `images.unsplash.com` 远程图片**
+  - 所有 unsplash 图片 URL 替换为 `picsum.photos/seed/xxx/W/H`
+  - `frontend/next.config.js` 的 `images.remotePatterns` 移除 `images.unsplash.com`，仅保留 `picsum.photos` + `localhost` + 环境变量扩展
+  - admin 主页布局编辑器的占位图同步更新
+- **[P1] 列表页"年份"筛选器渲染 127 个按钮（1900-2026）**
+  - `frontend/src/lib/constants.ts` 的 `YEAR_OPTIONS` 改为生成近 10 年（今年 - 9 到今年），从 127 → 10 个按钮
+  - FilterPanel / BonsaiForm 等 3 处自动受益
+- **[P2] a11y 警告：搜索表单字段缺少 `id` / `name` 属性**
+  - `frontend/src/app/(user)/bonsais/page.tsx` 给搜索 input 添加 `id="bonsai-search-input"` + `name="bonsai-search"`
+  - `frontend/src/app/admin/bonsais/page.tsx` 添加 `id="admin-bonsai-search"` + `name="admin-bonsai-search"`
+  - `frontend/src/app/admin/users/page.tsx` 添加 `id="admin-user-search"` + `name="admin-user-search"`
+- **[P2] 文档端口不一致**
+  - `AGENTS.md` 容器架构与健康检查命令的 `:1688` 全部修正为 `:443`（Caddy 默认 HTTPS 端口）
+
+#### Loop 2 服务器实测发现的问题
+
+- **[P0] 管理后台限流 429 误触发**
+  - `backend/src/app.module.ts`：移除全局 `'auth'` 限流器注册（NestJS Throttler v5+ 的 `ThrottlerGuard` 会检查**所有**全局命名限流器，全局 `'auth': 5/min` 会导致所有 admin 路由被错误限制到 5/min，admin layout 加载 dashboard 一次就触发 9+ API 而被 429）
+  - 全局 `'default'` 限流从 `100/min` 提升到 `300/min`（管理后台单次页面加载约 8-10 API + 轮询 + RSC 预取，需充足配额）
+  - `backend/src/modules/auth/auth.controller.ts`：`register` / `login` / `refresh` / `change-password` 装饰器从 `@Throttle({ auth: 5 })` 改为 `@Throttle({ default: 5 })`，在认证路由上仍保留 5/min 防暴力破解
+
+### 变更（Changed）
+
+- **`AGENTS.md` Loop 进度表**
+  - 新增 Loop 1 / Loop 2 行 + 详细问题清单 + 修复记录 + 复测结果
+  - 新增 Loop 3 计划（GitHub v1.2.1 Release 发布）
+
+### 部署（Deployment）
+
+- 服务器部署位置：`/root/jia/penjing`（5 容器 healthy）
+- 数据卷保留：`penjing-mysql` / `penjing-redis` 数据未受影响
+- 健康检查：`/api/v1/health/live` 返回 200
+- 浏览器全功能复测：用户端首页 / 列表 / 详情 / 登录；管理端 dashboard / bonsais / categories / chat / users / layout-editor / settings 全部通过
+- 控制台无 error
+
+### 已澄清（Clarified）
+
+- `frontend/src/lib/api.ts` 72 处 `api.get<{ data: T }>` 调用**均正确**。后端实际响应结构为 `{ success, data, message }`，前端 `res.data` 访问与 `request<T>` 实现匹配，**非泛型错误**。
 
 ---
 

@@ -2,7 +2,7 @@
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { BACKEND_ORIGIN, PUBLIC_ORIGIN } from './constants';
+import { getBackendOrigin, getPublicOrigin } from './constants';
 
 /**
  * 合并 Tailwind 类名，处理冲突
@@ -89,8 +89,11 @@ export function resolveImageUrl(url: string | null | undefined): string {
   if (/^https?:\/\//.test(url)) return url;
   // 相对路径：服务端拼接后端 origin，客户端原样返回（由反向代理处理）
   if (url.startsWith('/')) {
-    if (typeof window === 'undefined' && BACKEND_ORIGIN) {
-      return `${BACKEND_ORIGIN}${url}`;
+    if (typeof window === 'undefined') {
+      const backendOrigin = getBackendOrigin();
+      if (backendOrigin) {
+        return `${backendOrigin}${url}`;
+      }
     }
     return url;
   }
@@ -114,7 +117,8 @@ export function resolvePublicImageUrl(url: string | null | undefined): string {
   if (/^https?:\/\//.test(url)) return url;
   // 相对路径：拼接公网 origin（CSR 下也使用公网域名，因为 OG 是 SSR 生成）
   if (url.startsWith('/')) {
-    return PUBLIC_ORIGIN ? `${PUBLIC_ORIGIN}${url}` : url;
+    const publicOrigin = getPublicOrigin();
+    return publicOrigin ? `${publicOrigin}${url}` : url;
   }
   return url;
 }

@@ -15,10 +15,9 @@ const nextConfig = {
     unoptimized: true,
     // 安全：仅允许已知图片域名，防止 SSRF 与防盗链绕过
     // - 后端域名（用户上传的盆景图、头像）
-    // - Unsplash（种子数据占位图）
+    // - picsum.photos（种子数据占位图，绕开 ORB）
     // 生产部署时通过环境变量 NEXT_PUBLIC_IMAGE_DOMAINS 注入真实后端域名
     remotePatterns: [
-      { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'picsum.photos' },
       { protocol: 'http', hostname: 'localhost' },
       // 通过环境变量扩展（逗号分隔），生产环境注入实际域名

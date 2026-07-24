@@ -205,6 +205,8 @@ function BonsaisPageContent() {
           <form onSubmit={handleSearch} className="flex flex-1 items-center gap-3">
             <Search className="h-4 w-4 flex-shrink-0 text-text-muted" strokeWidth={1.5} />
             <input
+              id="bonsai-search-input"
+              name="bonsai-search"
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}

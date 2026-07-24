@@ -283,6 +283,8 @@ export function ChatWidget({
         )}
         <div className="flex items-center gap-3">
           <input
+            id="chat-widget-input"
+            name="chat-widget-input"
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}

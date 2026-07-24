@@ -112,6 +112,8 @@ export function FavoritesFilterPanel({
       {/* 搜索 */}
       <FilterSection title="关键词">
         <input
+          id="favorites-search"
+          name="favorites-search"
           type="search"
           value={value.search}
           onChange={(e) => update('search', e.target.value)}

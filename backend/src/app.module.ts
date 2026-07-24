@@ -37,13 +37,12 @@ import configuration from './config/configuration';
       {
         name: 'default',
         ttl: 60_000, // 1 分钟
-        limit: 100, // 每分钟 100 请求
+        limit: 300, // 每分钟 300 请求（管理后台单次页面加载约 8-10 API + 轮询 + RSC 预取，需充足配额）
       },
-      {
-        name: 'auth',
-        ttl: 60_000, // 1 分钟
-        limit: 5, // 认证接口每分钟 5 请求（防暴力破解）
-      },
+      // 重要：不要在全局注册 'auth' 限流器。
+      // NestJS Throttler v5+ 的 ThrottlerGuard 在每次请求时检查**所有**全局命名限流器，
+      // 任何一个超限即返回 429。因此全局注册 'auth': 5/min 会导致所有请求都被限流到 5/min。
+      // 认证接口的严格限流请改用 @Throttle({ default: { limit: 5, ttl: 60_000 } }) 装饰器。
     ]),
     PrismaModule,
     RedisModule,

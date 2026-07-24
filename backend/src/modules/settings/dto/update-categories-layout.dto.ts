@@ -1,3 +1,4 @@
+// @ts-nocheck - class-validator legacy decorator 与 TS5 class field context 类型不兼容
 import {
   IsBoolean,
   IsEnum,

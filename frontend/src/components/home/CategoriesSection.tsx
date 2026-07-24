@@ -12,15 +12,12 @@ import { Skeleton } from '@/components/Loading';
 import type { Category, HomeSection } from '@/lib/types';
 
 // 分类默认封面图（按位置兜底）
+// 使用 picsum.photos 的 seed URL：每次访问同一 seed 返回稳定图片
 const CATEGORY_IMAGES: Record<string, string> = {
-  default1:
-    'https://images.unsplash.com/photo-1524598171347-833e3329d8ab?auto=format&fit=crop&w=800&q=80',
-  default2:
-    'https://images.unsplash.com/photo-1597055181300-e3633a917e3a?auto=format&fit=crop&w=800&q=80',
-  default3:
-    'https://images.unsplash.com/photo-1603991832113-9a4d7a8d4c3a?auto=format&fit=crop&w=800&q=80',
-  default4:
-    'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?auto=format&fit=crop&w=800&q=80',
+  default1: 'https://picsum.photos/seed/penjing-cat-1/800/1000',
+  default2: 'https://picsum.photos/seed/penjing-cat-2/800/1000',
+  default3: 'https://picsum.photos/seed/penjing-cat-3/800/1000',
+  default4: 'https://picsum.photos/seed/penjing-cat-4/800/1000',
 };
 
 interface CategoriesSectionProps {

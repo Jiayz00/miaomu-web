@@ -8,7 +8,7 @@
 // - 优雅降级：刷新失败时清除登录态并通过事件通知 UI 层跳转登录
 // - 防抖：避免短时间内重复 401 跳转登录页造成抖动
 
-import { API_BASE_URL, STORAGE_KEYS } from './constants';
+import { getApiBaseUrl, STORAGE_KEYS } from './constants';
 import type { ApiResponse } from './types';
 
 // 自定义错误类型
@@ -83,7 +83,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
   refreshPromise = (async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const res = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -179,7 +179,7 @@ async function request<T>(
 
   const url = endpoint.startsWith('http')
     ? endpoint
-    : `${API_BASE_URL}${endpoint}`;
+    : `${getApiBaseUrl()}${endpoint}`;
 
   const headers: Record<string, string> = {
     ...customHeaders,

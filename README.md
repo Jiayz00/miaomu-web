@@ -16,9 +16,21 @@
 
 | 版本 | 发布日期 | 类型 | 摘要 | 详情 |
 |------|----------|------|------|------|
+| [v1.2.1](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.1) | 2026-07-24 | PATCH | 服务器实测复测修复（SSR / ORB / 限流 / a11y） | [查看变更](CHANGELOG.md#v121---2026-07-24) |
 | [v1.2.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.0) | 2026-07-24 | MINOR | 管理端布局编辑 / 视频上传 / 收藏筛选 / UI 全面优化 | [查看变更](CHANGELOG.md#v120---2026-07-24) |
 | [v1.1.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.1.0) | 2026-07-22 | MINOR | 十轮严格审查修复（安全 / QA / 性能 / a11y / DevOps） | [查看变更](CHANGELOG.md#v110---2026-07-22) |
 | [v1.0.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.0.0) | 2026-07-20 | MAJOR | 盆景艺术展示与销售平台全栈首版 | [查看变更](CHANGELOG.md#v100---2026-07-20) |
+
+### v1.2.1 更新要点
+
+- **修复** SSR 阶段 `API_BASE_URL` 编译期内联导致的盆景详情页 404（改为运行时函数）
+- **修复** `images.unsplash.com` 被 ORB 拦截的图片加载失败（替换为 `picsum.photos`）
+- **修复** 列表页"年份"筛选器渲染 1900-2026 共 127 个按钮的 UX 灾难（改为近 10 年）
+- **修复** 多个搜索表单缺失 `id` / `name` 属性的 a11y 警告
+- **修复** NestJS Throttler v5 全局 `'auth'` 限流误应用到所有路由导致的管理后台 429（移除全局 auth 限流，认证路由显式 `@Throttle`）
+- **修复** 文档服务器端口不一致（`:1688` → `:443`）
+
+完整变更请跳转：[CHANGELOG.md#v121---2026-07-24](CHANGELOG.md#v121---2026-07-24)
 
 ### v1.2.0 更新要点
 

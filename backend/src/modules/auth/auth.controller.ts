@@ -34,7 +34,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @Throttle({ auth: { ttl: 60_000, limit: 5 } })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: '用户注册' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -50,7 +50,7 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
-  @Throttle({ auth: { ttl: 60_000, limit: 5 } })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: '刷新访问令牌（一次性轮换）' })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto.refreshToken);

@@ -67,3 +67,17 @@ AGENTS.md
 
 # 临时 Caddy 配置
 Caddyfile.new
+
+# 调试 / 测试 / 部署临时文件（开发用，不入仓库）
+scripts/
+api-test*.txt
+repro*.sh
+repro_*.sh
+tsc_test*.sh
+tsc*test*.json
+tsconfig_test*.json
+deploy-loop*.sh
+detail-page.html
+login.html
+bonsais.json
+categories.json
