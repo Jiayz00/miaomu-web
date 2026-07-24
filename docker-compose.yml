@@ -125,7 +125,7 @@ services:
       NODE_ENV: "production"
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       UPLOAD_DIR: "/app/uploads"
-      MAX_FILE_SIZE: "5242880"
+      MAX_FILE_SIZE: "31457280"
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD:?ADMIN_DEFAULT_PASSWORD must be set}
@@ -143,8 +143,9 @@ services:
       - penjing-network
     # 资源限制：NestJS + Prisma + Sharp（图片压缩），预留 256MB / 1 核
     # Sharp 处理大图时内存峰值较高，预留缓冲
-    mem_limit: 512m
-    mem_reservation: 256m
+    # 视频上传使用 memoryStorage，1GB 视频会占用内存，需提高上限
+    mem_limit: 2g
+    mem_reservation: 512m
     cpus: 1.0
     healthcheck:
       # 使用存活检查端点，仅检测进程存活，避免依赖故障导致容器频繁重启
@@ -171,6 +172,10 @@ services:
       PORT: "3000"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-}
+      # SSR 专用：Next.js 服务端渲染时调用后端 API 的绝对 URL
+      # Docker 内部网络：frontend 容器通过 service name "backend" 访问后端
+      # 客户端浏览器仍使用 NEXT_PUBLIC_API_URL（相对路径，由 Caddy 代理）
+      BACKEND_URL: "http://backend:4000/api/v1"
     # 映射端口到宿主机，供 Caddy 反向代理访问
     ports:
       - "3000:3000"
