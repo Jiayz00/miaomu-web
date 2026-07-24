@@ -1,0 +1,71 @@
+# 盆景平台 Docker Compose 开发环境配置
+#
+# 设计目标：
+# - 仅启动 MySQL + Redis 两个基础设施服务，前后端本地运行（支持热重载）
+# - 端口映射到宿主机，方便本地 IDE 直连调试
+# - 不配置资源限制（开发环境资源充足，且单容器性能影响小）
+# - 不配置日志轮转（开发环境容器短生命周期，docker logs 足够）
+# - 数据持久化到独立 dev 卷，避免与生产数据混淆
+#
+# 使用方式：
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down
+#   docker compose -f docker-compose.dev.yml down -v  # 删除数据卷（重置数据库）
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: penjing-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: penjing_db
+      MYSQL_USER: penjing
+      MYSQL_PASSWORD: penjingpassword
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-authentication-plugin=caching_sha2_password
+    # 开发环境映射端口到宿主机，便于 DBeaver/Navicat 直连
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - penjing-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: penjing-redis-dev
+    restart: unless-stopped
+    # 开发环境不设密码，便于本地调试
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - penjing-dev-network
+
+volumes:
+  mysql_dev_data:
+    name: penjing-mysql-dev-data
+  redis_dev_data:
+    name: penjing-redis-dev-data
+
+networks:
+  penjing-dev-network:
+    driver: bridge

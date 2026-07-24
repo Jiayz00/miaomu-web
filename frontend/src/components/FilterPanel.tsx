@@ -3,7 +3,7 @@
 'use client';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { X, SlidersHorizontal } from 'lucide-react';
 import {
   SORT_OPTIONS,
@@ -19,6 +19,27 @@ interface FilterPanelProps {
   // 移动端控制显隐
   open?: boolean;
   onClose?: () => void;
+}
+
+/**
+ * 筛选区段组件（必须在模块顶层定义，不能放在函数体内）
+ * 否则每次渲染会创建新组件类型，导致重渲染与状态丢失
+ */
+function FilterSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-text-muted/10 py-6">
+      <h3 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-text-light">
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
 }
 
 export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
@@ -55,20 +76,23 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
       (r) => `${r.min}-${r.max}` === currentPrice
     )?.value || '';
 
-  const FilterSection = ({
-    title,
-    children,
-  }: {
-    title: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="border-b border-text-muted/10 py-6">
-      <h3 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-text-light">
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
+  // 移动端抽屉打开时：Esc 关闭 + 锁定背景滚动（WCAG 2.1.2 No Keyboard Trap）
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [open, onClose]);
+
+  // FilterSection 已移至模块顶层
 
   const content = (
     <div className="space-y-0">
@@ -80,6 +104,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
               key={opt.value}
               type="button"
               onClick={() => updateParam('sort', opt.value)}
+              aria-pressed={currentSort === opt.value}
               className={cn(
                 'block text-sm transition-colors',
                 currentSort === opt.value
@@ -99,6 +124,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
           <button
             type="button"
             onClick={() => updateParam('categoryId', null)}
+            aria-pressed={!currentCategory}
             className={cn(
               'block text-sm transition-colors',
               !currentCategory
@@ -113,6 +139,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
               key={cat.id}
               type="button"
               onClick={() => updateParam('categoryId', String(cat.id))}
+              aria-pressed={currentCategory === String(cat.id)}
               className={cn(
                 'block text-sm transition-colors',
                 currentCategory === String(cat.id)
@@ -136,6 +163,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
               updateParam('minPrice', null);
               updateParam('maxPrice', null);
             }}
+            aria-pressed={!currentPrice}
             className={cn(
               'block text-sm transition-colors',
               !currentPrice
@@ -154,6 +182,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
                 updateParam('minPrice', String(range.min));
                 updateParam('maxPrice', String(range.max));
               }}
+              aria-pressed={priceValue === range.value}
               className={cn(
                 'block text-sm transition-colors',
                 priceValue === range.value
@@ -173,6 +202,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
           <button
             type="button"
             onClick={() => updateParam('origin', null)}
+            aria-pressed={!currentOrigin}
             className={cn(
               'block text-sm transition-colors',
               !currentOrigin
@@ -187,6 +217,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
               key={origin}
               type="button"
               onClick={() => updateParam('origin', origin)}
+              aria-pressed={currentOrigin === origin}
               className={cn(
                 'block text-sm transition-colors',
                 currentOrigin === origin
@@ -206,6 +237,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
           <button
             type="button"
             onClick={() => updateParam('year', null)}
+            aria-pressed={!currentYear}
             className={cn(
               'block text-sm transition-colors',
               !currentYear
@@ -220,6 +252,7 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
               key={opt.value}
               type="button"
               onClick={() => updateParam('year', opt.value)}
+              aria-pressed={currentYear === opt.value}
               className={cn(
                 'block text-sm transition-colors',
                 currentYear === opt.value
@@ -238,33 +271,39 @@ export function FilterPanel({ categories, open, onClose }: FilterPanelProps) {
   return (
     <>
       {/* 桌面端：常驻侧栏 */}
-      <aside className="hidden lg:block">
+      <aside className="hidden lg:block" aria-label="盆景筛选">
         <div className="sticky top-28">
           <div className="mb-6 flex items-center gap-2 text-primary">
-            <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
+            <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             <span className="font-serif text-xl">筛选</span>
           </div>
           {content}
         </div>
       </aside>
 
-      {/* 移动端：抽屉 */}
+      {/* 移动端：抽屉（WCAG 4.1.2 / 2.1.2：role=dialog + aria-modal + Esc 关闭） */}
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-primary-dark/50 backdrop-blur-sm"
             onClick={onClose}
+            aria-hidden="true"
           />
-          <div className="absolute right-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-background p-6">
+          <div
+            className="absolute right-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-background p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="盆景筛选"
+          >
             <div className="mb-6 flex items-center justify-between">
               <span className="font-serif text-xl text-primary">筛选</span>
               <button
                 type="button"
                 onClick={onClose}
                 className="text-text-light"
-                aria-label="关闭"
+                aria-label="关闭筛选"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
             {content}

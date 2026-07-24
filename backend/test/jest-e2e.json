@@ -1,0 +1,18 @@
+{
+  "rootDir": "..",
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "roots": ["<rootDir>/test"],
+  "testRegex": ".*\\.e2e-spec\\.ts$",
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "modulePathIgnorePatterns": ["<rootDir>/dist"],
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/src/$1"
+  },
+  "setupFilesAfterEnv": ["<rootDir>/test/jest.setup.ts"],
+  "transform": {
+    "^.+\\.ts$": ["ts-jest", { "isolatedModules": true }]
+  },
+  "testTimeout": 30000,
+  "verbose": false
+}

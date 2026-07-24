@@ -23,7 +23,19 @@ export class RedisService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
-    this.client = createClient({ url: this.url }) as RedisClientType;
+    this.client = createClient({
+      url: this.url,
+      // 显式配置重连策略：指数退避，最长 5 秒重试一次
+      // Redis 断连后自动重连，避免服务永久不可用
+      socket: {
+        reconnectStrategy: (retries: number) => {
+          const delay = Math.min(retries * 100, 5000);
+          this.logger.warn(`🔄 Redis 重连中（第 ${retries + 1} 次，${delay}ms 后重试）`);
+          return delay;
+        },
+        connectTimeout: 10_000,
+      },
+    }) as RedisClientType;
 
     this.client.on('error', (err: unknown) => {
       this.logger.error(`Redis 连接异常: ${err instanceof Error ? err.message : String(err)}`);
@@ -31,6 +43,14 @@ export class RedisService implements OnModuleInit {
 
     this.client.on('connect', () => {
       this.logger.log('✅ Redis 连接已建立');
+    });
+
+    this.client.on('reconnecting', () => {
+      this.logger.warn('🔄 Redis 尝试重连...');
+    });
+
+    this.client.on('ready', () => {
+      this.logger.log('✅ Redis 就绪');
     });
 
     await this.client.connect();
@@ -56,10 +76,24 @@ export class RedisService implements OnModuleInit {
 
   /**
    * 检查 access token 是否在黑名单
+   *
+   * 健壮性设计（fail-open）：
+   * Redis 不可用时返回 false（放行），避免 Redis 故障导致所有用户被踢出登录。
+   * 安全权衡：放行已在黑名单的 token（登出后的旧 token）只是让其继续有效至自然过期
+   * （access token 通常 15 分钟），危害远小于全站用户被踢出。
+   * Redis 恢复后黑名单立即恢复精确校验。
    */
   async isAccessTokenBlacklisted(jti: string): Promise<boolean> {
-    const value = await this.client.get(`blacklist:access:${jti}`);
-    return value === '1';
+    try {
+      if (!this.client?.isOpen) return false;
+      const value = await this.client.get(`blacklist:access:${jti}`);
+      return value === '1';
+    } catch (err) {
+      this.logger.warn(
+        `⚠️ Redis 黑名单查询失败，fail-open 放行: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
   }
 
   /**
@@ -89,10 +123,23 @@ export class RedisService implements OnModuleInit {
   /**
    * 校验 refresh token 是否为用户当前有效的那一条
    * 返回 true 表示有效，false 表示已被轮换/失效
+   *
+   * 健壮性设计（fail-closed）：
+   * Redis 不可用时返回 false（拒绝刷新），用户需重新登录。
+   * 安全权衡：refresh token 失效会强制用户重登，但不会让已被撤销的 token 复活，
+   * 安全性优先于可用性。Redis 恢复后自动恢复。
    */
   async isRefreshTokenValid(userId: number, jti: string): Promise<boolean> {
-    const stored = await this.client.hGet(`refresh:valid:${userId}`, 'jti');
-    return stored === jti;
+    try {
+      if (!this.client?.isOpen) return false;
+      const stored = await this.client.hGet(`refresh:valid:${userId}`, 'jti');
+      return stored === jti;
+    } catch (err) {
+      this.logger.warn(
+        `⚠️ Redis refresh 校验失败，fail-closed 拒绝: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
   }
 
   /**
@@ -100,6 +147,17 @@ export class RedisService implements OnModuleInit {
    */
   async revokeAllRefreshTokens(userId: number): Promise<void> {
     await this.client.del(`refresh:valid:${userId}`);
+  }
+
+  /**
+   * PING 命令（用于健康检查）
+   * 返回 'PONG' 表示 Redis 可达
+   */
+  async ping(): Promise<string> {
+    if (!this.client?.isOpen) {
+      throw new Error('Redis 客户端未连接');
+    }
+    return this.client.ping();
   }
 
   /**

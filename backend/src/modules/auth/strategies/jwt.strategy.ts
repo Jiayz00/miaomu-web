@@ -47,7 +47,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     // 3) 查询用户当前状态：被禁用的账号即使 token 未过期也立即失效
     //    findById 抛 NotFoundException，在认证上下文中应转为 401
-    let user;
+    let user: Awaited<ReturnType<UsersService['findById']>>;
     try {
       user = await this.usersService.findById(payload.sub);
     } catch {
@@ -69,12 +69,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     // 返回精简的用户信息供后续守卫使用
+    // 保留 iat/exp：登出时需要 exp 计算 access token 黑名单 TTL
     return {
       sub: user.id,
       username: user.username,
       email: user.email,
       role: user.role,
       jti: payload.jti,
+      iat: payload.iat,
+      exp: payload.exp,
     };
   }
 }

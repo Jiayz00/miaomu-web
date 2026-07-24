@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { UpdateStatusDto } from '../../common/dto/status.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -79,8 +80,8 @@ export class ChatAdminController {
   @ApiOperation({ summary: '标记会话已处理' })
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: number,
+    @Body() dto: UpdateStatusDto,
   ) {
-    return this.chatService.updateRoomStatus(id, status);
+    return this.chatService.updateRoomStatus(id, dto.status);
   }
 }

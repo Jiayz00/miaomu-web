@@ -77,10 +77,32 @@ function ProfileContent() {
   ];
 
   // 头像上传处理
+  // 客户端预校验：类型、大小（最大 2MB），避免无效上传消耗带宽
   const handleAvatarUpload = useCallback(
     async (files: FileList) => {
       const file = files[0];
       if (!file) return;
+
+      // 类型校验
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setProfileMsg({
+          type: 'error',
+          text: '仅支持 JPG / PNG / WebP 格式',
+        });
+        return;
+      }
+
+      // 大小校验（2MB）
+      const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+      if (file.size > MAX_AVATAR_SIZE) {
+        setProfileMsg({
+          type: 'error',
+          text: '图片大小不能超过 2MB',
+        });
+        return;
+      }
+
       setAvatarUploading(true);
       setProfileMsg(null);
       try {
@@ -199,7 +221,7 @@ function ProfileContent() {
                 ) : (
                   <span>{user?.username.charAt(0).toUpperCase()}</span>
                 )}
-                <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
                   {avatarUploading ? (
                     <Loader2 className="h-5 w-5 animate-spin text-white" />
                   ) : (
@@ -223,12 +245,12 @@ function ProfileContent() {
             <div className="flex-1">
               <h2 className="font-serif text-2xl text-primary">{user?.username}</h2>
               <p className="flex items-center gap-2 text-sm text-text-muted">
-                <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <Mail className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                 {user?.email}
               </p>
               {user?.phone && (
                 <p className="flex items-center gap-2 text-sm text-text-muted">
-                  <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <Phone className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                   {user.phone}
                 </p>
               )}
@@ -236,7 +258,7 @@ function ProfileContent() {
             <div className="flex items-center gap-3">
               {user?.role === 'ADMIN' && (
                 <span className="flex items-center gap-1.5 border border-accent/40 px-3 py-1 text-xs uppercase tracking-[0.15em] text-accent">
-                  <Shield className="h-3 w-3" strokeWidth={1.5} />
+                  <Shield className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
                   管理员
                 </span>
               )}
@@ -245,45 +267,84 @@ function ProfileContent() {
                 onClick={handleLogout}
                 disabled={loggingOut}
                 className="flex items-center gap-1.5 border border-red-500/40 px-3 py-1 text-xs uppercase tracking-[0.15em] text-red-600 transition-all hover:bg-red-50 disabled:opacity-50"
-                title="退出登录"
+                aria-label="退出登录"
               >
                 {loggingOut ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                 ) : (
-                  <LogOut className="h-3 w-3" strokeWidth={1.5} />
+                  <LogOut className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
                 )}
                 退出登录
               </button>
             </div>
           </div>
 
-          {/* 标签切换 */}
-          <div className="mb-8 flex flex-wrap gap-2 border-b border-text-muted/15">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  'flex items-center gap-2 border-b-2 px-5 py-3 text-sm transition-colors',
-                  tab === t.key
-                    ? 'border-accent text-primary'
-                    : 'border-transparent text-text-light hover:text-primary'
-                )}
-              >
-                <t.icon className="h-4 w-4" strokeWidth={1.5} />
-                {t.label}
-              </button>
-            ))}
+          {/* 标签切换（WCAG 4.1.2：tablist/tab/tabpanel 语义 + 方向键导航） */}
+          <div
+            className="mb-8 flex flex-wrap gap-2 border-b border-text-muted/15"
+            role="tablist"
+            aria-label="个人中心功能区"
+            onKeyDown={(e) => {
+              const keys: Tab[] = ['profile', 'security', 'favorites', 'inquiries'];
+              const idx = keys.indexOf(tab);
+              if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                setTab(keys[(idx + 1) % keys.length]);
+              } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                setTab(keys[(idx - 1 + keys.length) % keys.length]);
+              } else if (e.key === 'Home') {
+                e.preventDefault();
+                setTab(keys[0]);
+              } else if (e.key === 'End') {
+                e.preventDefault();
+                setTab(keys[keys.length - 1]);
+              }
+            }}
+          >
+            {tabs.map((t) => {
+              const panelId = `profile-panel-${t.key}`;
+              const tabId = `profile-tab-${t.key}`;
+              return (
+                <button
+                  key={t.key}
+                  id={tabId}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  aria-controls={panelId}
+                  tabIndex={tab === t.key ? 0 : -1}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'flex items-center gap-2 border-b-2 px-5 py-3 text-sm transition-colors',
+                    tab === t.key
+                      ? 'border-accent text-primary'
+                      : 'border-transparent text-text-light hover:text-primary'
+                  )}
+                >
+                  <t.icon className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* 内容区 */}
           {tab === 'profile' && (
-            <div className="border border-text-muted/15 bg-surface p-8">
+            <div
+              id="profile-panel-profile"
+              role="tabpanel"
+              aria-labelledby="profile-tab-profile"
+              tabIndex={0}
+              className="border border-text-muted/15 bg-surface p-8 focus:outline-none"
+            >
               <h3 className="mb-6 font-serif text-xl text-primary">编辑个人信息</h3>
 
+              {/* role="status" 让屏读器播报操作结果（WCAG 4.1.3 Status Messages） */}
               {profileMsg && (
                 <div
+                  role={profileMsg.type === 'error' ? 'alert' : 'status'}
+                  aria-live="polite"
                   className={cn(
                     'mb-4 border px-4 py-3 text-sm',
                     profileMsg.type === 'success'
@@ -297,10 +358,11 @@ function ProfileContent() {
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
-                  <label className="label-luxury">用户名</label>
+                  <label className="label-luxury" htmlFor="profile-username">用户名</label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} />
+                    <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
                     <input
+                      id="profile-username"
                       type="text"
                       value={profileForm.username}
                       onChange={(e) =>
@@ -312,10 +374,11 @@ function ProfileContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="label-luxury">邮箱</label>
+                  <label className="label-luxury" htmlFor="profile-email">邮箱</label>
                   <div className="relative">
-                    <AtSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} />
+                    <AtSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
                     <input
+                      id="profile-email"
                       type="email"
                       value={profileForm.email}
                       onChange={(e) =>
@@ -327,10 +390,11 @@ function ProfileContent() {
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="label-luxury">手机号</label>
+                  <label className="label-luxury" htmlFor="profile-phone">手机号</label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} />
+                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
                     <input
+                      id="profile-phone"
                       type="tel"
                       value={profileForm.phone}
                       onChange={(e) =>
@@ -365,16 +429,24 @@ function ProfileContent() {
           )}
 
           {tab === 'security' && (
-            <div className="space-y-6">
+            <div
+              id="profile-panel-security"
+              role="tabpanel"
+              aria-labelledby="profile-tab-security"
+              tabIndex={0}
+              className="space-y-6 focus:outline-none"
+            >
               {/* 修改密码 */}
               <div className="border border-text-muted/15 bg-surface p-8">
                 <h3 className="mb-6 flex items-center gap-2 font-serif text-xl text-primary">
-                  <Key className="h-5 w-5 text-accent" strokeWidth={1.5} />
+                  <Key className="h-5 w-5 text-accent" strokeWidth={1.5} aria-hidden="true" />
                   修改密码
                 </h3>
 
                 {pwdMsg && (
                   <div
+                    role={pwdMsg.type === 'error' ? 'alert' : 'status'}
+                    aria-live="polite"
                     className={cn(
                       'mb-4 border px-4 py-3 text-sm',
                       pwdMsg.type === 'success'
@@ -388,8 +460,9 @@ function ProfileContent() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="label-luxury">原密码</label>
+                    <label className="label-luxury" htmlFor="profile-old-password">原密码</label>
                     <input
+                      id="profile-old-password"
                       type="password"
                       value={pwdForm.oldPassword}
                       onChange={(e) =>
@@ -401,8 +474,9 @@ function ProfileContent() {
                     />
                   </div>
                   <div>
-                    <label className="label-luxury">新密码</label>
+                    <label className="label-luxury" htmlFor="profile-new-password">新密码</label>
                     <input
+                      id="profile-new-password"
                       type="password"
                       value={pwdForm.newPassword}
                       onChange={(e) =>
@@ -414,8 +488,9 @@ function ProfileContent() {
                     />
                   </div>
                   <div>
-                    <label className="label-luxury">确认新密码</label>
+                    <label className="label-luxury" htmlFor="profile-confirm-password">确认新密码</label>
                     <input
+                      id="profile-confirm-password"
                       type="password"
                       value={pwdForm.confirmPassword}
                       onChange={(e) =>
@@ -436,9 +511,9 @@ function ProfileContent() {
                     className="flex items-center gap-2 border border-accent bg-accent px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-primary transition-all hover:bg-accent/90 disabled:opacity-50"
                   >
                     {pwdSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Key className="h-4 w-4" strokeWidth={1.5} />
+                      <Key className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                     )}
                     确认修改
                   </button>
@@ -452,7 +527,7 @@ function ProfileContent() {
               {/* 退出登录 */}
               <div className="border border-red-200/30 bg-surface p-8">
                 <h3 className="mb-2 flex items-center gap-2 font-serif text-xl text-red-600">
-                  <LogOut className="h-5 w-5" strokeWidth={1.5} />
+                  <LogOut className="h-5 w-5" strokeWidth={1.5} aria-hidden="true" />
                   退出登录
                 </h3>
                 <p className="mb-4 text-sm text-text-muted">
@@ -465,9 +540,9 @@ function ProfileContent() {
                   className="flex items-center gap-2 border border-red-500/50 bg-red-50 px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-red-600 transition-all hover:bg-red-100 disabled:opacity-50"
                 >
                   {loggingOut ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <LogOut className="h-4 w-4" strokeWidth={1.5} />
+                    <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                   )}
                   退出登录
                 </button>
@@ -476,7 +551,13 @@ function ProfileContent() {
           )}
 
           {tab === 'favorites' && (
-            <div className="border border-text-muted/15 bg-surface">
+            <div
+              id="profile-panel-favorites"
+              role="tabpanel"
+              aria-labelledby="profile-tab-favorites"
+              tabIndex={0}
+              className="border border-text-muted/15 bg-surface focus:outline-none"
+            >
               {favLoading ? (
                 <InlineLoading />
               ) : favorites && favorites.length > 0 ? (
@@ -513,18 +594,33 @@ function ProfileContent() {
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Heart className="mb-3 h-10 w-10 text-text-muted/30" strokeWidth={1} />
                   <p className="text-sm text-text-muted">还没有收藏任何盆景</p>
+                  <Link
+                    href="/bonsais"
+                    className="mt-4 inline-flex items-center gap-2 border border-accent px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
+                  >
+                    去浏览盆景
+                  </Link>
                 </div>
               )}
             </div>
           )}
 
           {tab === 'inquiries' && (
-            <div className="border border-text-muted/15 bg-surface">
+            <div
+              id="profile-panel-inquiries"
+              role="tabpanel"
+              aria-labelledby="profile-tab-inquiries"
+              tabIndex={0}
+              className="border border-text-muted/15 bg-surface focus:outline-none"
+            >
               {roomLoading ? (
                 <InlineLoading />
               ) : rooms && rooms.length > 0 ? (
                 <div className="divide-y divide-text-muted/10">
-                  {rooms.map((room) => (
+                  {rooms.map((room) => {
+                    // status === 0 表示待处理（管理员尚未回复），1 表示已回复
+                    const pending = room.status === 0;
+                    return (
                     <Link
                       key={room.id}
                       href={`/chat?room=${room.id}`}
@@ -539,16 +635,40 @@ function ProfileContent() {
                           {formatDateTime(room.createdAt)}
                         </p>
                       </div>
-                      <span className="text-xs uppercase tracking-[0.2em] text-accent">
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] uppercase tracking-wider',
+                          pending
+                            ? 'bg-accent/15 text-accent-dark'
+                            : 'bg-primary/10 text-primary-light'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            pending ? 'bg-accent' : 'bg-primary-light'
+                          )}
+                          aria-hidden="true"
+                        />
+                        {pending ? '待回复' : '已回复'}
+                      </span>
+                      <span className="ml-2 text-xs uppercase tracking-[0.2em] text-accent">
                         查看
                       </span>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <MessageSquare className="mb-3 h-10 w-10 text-text-muted/30" strokeWidth={1} />
                   <p className="text-sm text-text-muted">还没有询价记录</p>
+                  <Link
+                    href="/bonsais"
+                    className="mt-4 inline-flex items-center gap-2 border border-accent px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
+                  >
+                    去发起询价
+                  </Link>
                 </div>
               )}
             </div>

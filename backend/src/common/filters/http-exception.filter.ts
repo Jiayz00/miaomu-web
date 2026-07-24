@@ -11,7 +11,11 @@ import { Prisma } from '@prisma/client';
 
 /**
  * 全局异常过滤器
- * 统一错误响应格式：{ statusCode, message, error, timestamp, path }
+ * 统一错误响应格式：{ statusCode, message, error, timestamp, path, requestId }
+ *
+ * 可观测性：
+ * - 错误日志含 requestId，便于按请求聚合全链路日志
+ * - 响应体含 requestId，客户端可在反馈问题时提供该 ID 加速定位
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -21,6 +25,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    // requestId 由 RequestIdMiddleware 注入，兜底 '-'
+    const requestId =
+      (request as unknown as { requestId?: string }).requestId || '-';
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = '服务器内部错误';
@@ -60,17 +68,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       // 非 HttpException / 非 Prisma 错误：不向客户端泄露内部细节
-      // 仅在服务端日志记录真实 message 与 stack
-      this.logger.error(`未处理异常: ${exception.message}`, exception.stack);
+      // 仅在服务端日志记录真实 message 与 stack（含 requestId 便于追踪）
+      this.logger.error(
+        `rid=${requestId} 未处理异常: ${exception.message}`,
+        exception.stack,
+      );
       // message 保持默认"服务器内部错误"
     } else {
-      this.logger.error('未知异常', String(exception));
+      this.logger.error(`rid=${requestId} 未知异常`, String(exception));
     }
 
     // 记录错误日志（非 4xx 错误）
     if (statusCode >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} ${statusCode} - ${message}`,
+        `rid=${requestId} ${request.method} ${request.url} ${statusCode} - ${message}`,
       );
     }
 
@@ -80,6 +91,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId,
     });
   }
 }

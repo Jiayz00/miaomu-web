@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -29,6 +30,9 @@ export class CategoriesService {
 
   /**
    * 公开分类详情（含该分类下的盆景列表）
+   *
+   * 性能设计：限制最大返回 100 条，避免单分类下盆景过多时
+   * 一次性加载全部数据（含 images 关联）造成响应过大与内存压力
    */
   async findPublicBySlug(slug: string) {
     const category = await this.prisma.category.findFirst({
@@ -47,6 +51,7 @@ export class CategoriesService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100, // 限制最大返回数量，避免单分类数据量过大
     });
 
     return { ...category, bonsais };
@@ -70,22 +75,29 @@ export class CategoriesService {
     return category;
   }
 
+  /**
+   * 创建分类
+   *
+   * 并发安全：slug 与 name 的唯一性由数据库 UNIQUE 约束兜底，
+   * 捕获 P2002 错误转换为 ConflictException，避免 check-then-create 竞态
+   */
   async create(dto: CreateCategoryDto) {
-    // slug 唯一性校验
-    const exist = await this.prisma.category.findUnique({
-      where: { slug: dto.slug },
-      select: { id: true },
-    });
-    if (exist) throw new ConflictException('slug 已存在');
-
-    // name 唯一性校验
-    const existName = await this.prisma.category.findUnique({
-      where: { name: dto.name },
-      select: { id: true },
-    });
-    if (existName) throw new ConflictException('分类名称已存在');
-
-    return this.prisma.category.create({ data: dto });
+    try {
+      return await this.prisma.category.create({ data: dto });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        // 根据 target 区分冲突字段
+        const target = (e.meta?.target as string[] | undefined)?.join(',') || '';
+        if (target.includes('slug')) {
+          throw new ConflictException('slug 已存在');
+        }
+        if (target.includes('name')) {
+          throw new ConflictException('分类名称已存在');
+        }
+        throw new ConflictException('分类已存在');
+      }
+      throw e;
+    }
   }
 
   async update(id: number, dto: UpdateCategoryDto) {

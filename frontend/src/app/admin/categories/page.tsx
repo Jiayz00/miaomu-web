@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, X, Upload, Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
@@ -31,6 +31,22 @@ export default function AdminCategoriesPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // 模态框打开时：Esc 关闭 + 锁定背景滚动（WCAG 2.1.2 No Keyboard Trap）
+  useEffect(() => {
+    if (!modalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setModalOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [modalOpen]);
 
   // 列表
   const { data: categories, isLoading } = useQuery<Category[]>({
@@ -166,13 +182,14 @@ export default function AdminCategoriesPage() {
       {/* 列表 */}
       <div className="overflow-x-auto border border-text-muted/15 bg-surface">
         <table className="w-full">
+          <caption className="sr-only">分类列表，含封面、名称、标识、描述与操作</caption>
           <thead>
             <tr className="border-b border-text-muted/15 bg-background/50 text-left text-xs uppercase tracking-[0.15em] text-text-muted">
-              <th className="px-4 py-4">封面</th>
-              <th className="px-4 py-4">名称</th>
-              <th className="px-4 py-4">标识</th>
-              <th className="px-4 py-4">描述</th>
-              <th className="px-4 py-4 text-right">操作</th>
+              <th scope="col" className="px-4 py-4">封面</th>
+              <th scope="col" className="px-4 py-4">名称</th>
+              <th scope="col" className="px-4 py-4">标识</th>
+              <th scope="col" className="px-4 py-4">描述</th>
+              <th scope="col" className="px-4 py-4 text-right">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-text-muted/10">
@@ -208,17 +225,17 @@ export default function AdminCategoriesPage() {
                         type="button"
                         onClick={() => openEdit(cat)}
                         className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-accent"
-                        aria-label="编辑"
+                        aria-label={`编辑分类 ${cat.name}`}
                       >
-                        <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                        <Pencil className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(cat)}
                         className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-red-500"
-                        aria-label="删除"
+                        aria-label={`删除分类 ${cat.name}`}
                       >
-                        <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                        <Trash2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       </button>
                     </div>
                   </td>
@@ -235,14 +252,20 @@ export default function AdminCategoriesPage() {
         </table>
       </div>
 
-      {/* 新增/编辑弹窗 */}
+      {/* 新增/编辑弹窗（WCAG 4.1.2 / 2.1.2：role=dialog + aria-modal + Esc 关闭） */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-primary-dark/60 backdrop-blur-sm"
             onClick={() => setModalOpen(false)}
+            aria-hidden="true"
           />
-          <div className="relative w-full max-w-lg border border-text-muted/15 bg-background p-8">
+          <div
+            className="relative w-full max-w-lg border border-text-muted/15 bg-background p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-label={editing ? '编辑分类' : '新增分类'}
+          >
             <div className="mb-6 flex items-center justify-between">
               <h2 className="font-serif text-2xl text-primary">
                 {editing ? '编辑分类' : '新增分类'}
@@ -251,44 +274,49 @@ export default function AdminCategoriesPage() {
                 type="button"
                 onClick={() => setModalOpen(false)}
                 className="text-text-light hover:text-primary"
-                aria-label="关闭"
+                aria-label="关闭弹窗"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5" aria-label={editing ? '编辑分类表单' : '新增分类表单'}>
               {error && (
-                <div className="border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-600">
+                <div className="border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-600" role="alert">
                   {error}
                 </div>
               )}
 
               <div>
-                <label className="label-luxury">分类名称</label>
+                <label className="label-luxury" htmlFor="category-name">分类名称</label>
                 <input
+                  id="category-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                   className={inputClass}
                   placeholder="如：松柏类"
+                  required
                 />
               </div>
 
               <div>
-                <label className="label-luxury">标识 (slug)</label>
+                <label className="label-luxury" htmlFor="category-slug">标识 (slug)</label>
                 <input
+                  id="category-slug"
                   type="text"
                   value={form.slug}
                   onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
                   className={inputClass}
                   placeholder="如：conifers"
+                  required
                 />
               </div>
 
               <div>
-                <label className="label-luxury">描述</label>
+                <label className="label-luxury" htmlFor="category-description">描述</label>
                 <textarea
+                  id="category-description"
                   value={form.description}
                   onChange={(e) =>
                     setForm((p) => ({ ...p, description: e.target.value }))
@@ -299,7 +327,7 @@ export default function AdminCategoriesPage() {
               </div>
 
               <div>
-                <label className="label-luxury">封面图片</label>
+                <span className="label-luxury">封面图片</span>
                 <div className="flex items-center gap-4">
                   <div className="h-20 w-28 overflow-hidden border border-text-muted/20 bg-primary-dark/10">
                     {form.coverImage && (
@@ -313,9 +341,9 @@ export default function AdminCategoriesPage() {
                   </div>
                   <label className="flex cursor-pointer items-center gap-2 border border-text-muted/30 px-4 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent">
                     {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Upload className="h-4 w-4" strokeWidth={1.5} />
+                      <Upload className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                     )}
                     上传
                     <input
@@ -323,6 +351,7 @@ export default function AdminCategoriesPage() {
                       accept="image/*"
                       onChange={handleUpload}
                       className="hidden"
+                      aria-label="上传分类封面图片"
                     />
                   </label>
                 </div>

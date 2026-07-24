@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   UseGuards,
+  ParseArrayPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FavoritesService } from './favorites.service';
@@ -50,11 +51,31 @@ export class FavoritesController {
   }
 
   @Get('check/:bonsaiId')
-  @ApiOperation({ summary: '检查是否已收藏' })
+  @ApiOperation({ summary: '检查是否已收藏（单个）' })
   check(
     @CurrentUser() user: JwtPayload,
     @Param('bonsaiId', ParseIntPipe) bonsaiId: number,
   ) {
     return this.favoritesService.check(user.sub, bonsaiId);
+  }
+
+  @Get('batch-check')
+  @ApiOperation({
+    summary: '批量检查收藏状态（列表页优化，避免 N+1）',
+    description: '传入 ids=1,2,3 查询多个盆景的收藏状态',
+  })
+  batchCheck(
+    @CurrentUser() user: JwtPayload,
+    @Query(
+      'ids',
+      new ParseArrayPipe({
+        items: Number,
+        separator: ',',
+        optional: false,
+      }),
+    )
+    ids: number[],
+  ) {
+    return this.favoritesService.batchCheck(user.sub, ids);
   }
 }

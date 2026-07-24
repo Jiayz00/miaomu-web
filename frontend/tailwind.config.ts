@@ -22,9 +22,10 @@ const config: Config = {
         background: '#faf8f5',
         surface: '#ffffff',
         text: {
+          // 对齐 WCAG AA：在 #faf8f5 背景上小文本对比度 ≥ 4.5:1
           DEFAULT: '#2c2c2c',
-          light: '#6b6b6b',
-          muted: '#9a9a9a',
+          light: '#5f5f5f',
+          muted: '#6b6b6b',
         },
       },
       fontFamily: {

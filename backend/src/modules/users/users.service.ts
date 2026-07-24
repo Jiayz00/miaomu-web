@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { resolvePagination, buildPaginatedResponse } from '../../common/dto/pagination.helper';
 import { UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
 import { Prisma, Role } from '@prisma/client';
 
@@ -36,9 +37,7 @@ export class UsersService {
    * 用户列表（分页 + 搜索）
    */
   async findAll(query: PaginationDto) {
-    const page = Number(query.page || 1);
-    const pageSize = Number(query.limit || 10);
-    const skip = (page - 1) * pageSize;
+    const { page, pageSize, skip } = resolvePagination(query);
 
     const where: Prisma.UserWhereInput = {};
     if (query.keyword) {
@@ -70,13 +69,7 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    return {
-      list,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
+    return buildPaginatedResponse(list, total, page, pageSize);
   }
 
   /**

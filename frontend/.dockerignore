@@ -1,0 +1,48 @@
+# ===== 依赖与构建产物（构建上下文中不需要） =====
+node_modules
+npm-debug.log
+npm-debug.log.*
+.npm
+.pnp
+.pnp.js
+yarn-error.log
+
+# ===== Next.js 构建产物（构建时重新生成） =====
+.next
+out
+build
+coverage
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ===== 环境变量与密钥（防止误打入镜像） =====
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# ===== 测试与日志 =====
+*.log
+logs
+
+# ===== 版本控制与 IDE =====
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+*.swo
+
+# ===== Docker 自身文件（避免递归构建） =====
+Dockerfile
+.dockerignore
+
+# ===== 文档（运行时不需要） =====
+README.md
+*.md
+
+# ===== 操作系统文件 =====
+.DS_Store
+Thumbs.db

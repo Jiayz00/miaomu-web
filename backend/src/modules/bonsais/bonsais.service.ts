@@ -5,9 +5,23 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolvePagination, buildPaginatedResponse } from '../../common/dto/pagination.helper';
 import { CreateBonsaiDto } from './dto/create-bonsai.dto';
 import { UpdateBonsaiDto } from './dto/update-bonsai.dto';
 import { QueryBonsaiDto } from './dto/query-bonsai.dto';
+
+/**
+ * 排序字段白名单映射（防止 SQL 注入，仅允许白名单字段）
+ *
+ * 设计原则：DRY
+ * findPublicList 与 findAdminList 共享同一映射，避免重复定义
+ */
+const BONSAI_SORT_FIELD_MAP: Record<string, string> = {
+  createdAt: 'createdAt',
+  price: 'price',
+  viewCount: 'viewCount',
+  year: 'year',
+};
 
 /**
  * 盆景服务
@@ -22,9 +36,7 @@ export class BonsaisService {
    * 仅返回上架商品
    */
   async findPublicList(query: QueryBonsaiDto) {
-    const page = Number(query.page || 1);
-    const pageSize = Number(query.limit || 10);
-    const skip = (page - 1) * pageSize;
+    const { page, pageSize, skip } = resolvePagination(query);
 
     const where: Prisma.BonsaiWhereInput = {
       deletedAt: null,
@@ -58,14 +70,7 @@ export class BonsaisService {
       where.isFeatured = true;
     }
 
-    // 排序映射（防止 SQL 注入，仅允许白名单字段）
-    const sortFieldMap: Record<string, string> = {
-      createdAt: 'createdAt',
-      price: 'price',
-      viewCount: 'viewCount',
-      year: 'year',
-    };
-    const sortField = sortFieldMap[query.sortBy || 'createdAt'] || 'createdAt';
+    const sortField = BONSAI_SORT_FIELD_MAP[query.sortBy || 'createdAt'] || 'createdAt';
     const sortOrder = (query.order === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
 
     const [list, total] = await Promise.all([
@@ -85,18 +90,15 @@ export class BonsaisService {
       this.prisma.bonsai.count({ where }),
     ]);
 
-    return {
-      list,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
+    return buildPaginatedResponse(list, total, page, pageSize);
   }
 
   /**
    * 详情查询（按 slug）
    * 同时记录浏览日志，浏览量 +1
+   *
+   * 数据一致性：浏览量自增与浏览日志写入在同一事务中，
+   * 避免其中一方失败导致统计与日志脱节
    */
   async findPublicBySlug(slug: string, opts?: { userId?: number | null; ip?: string; userAgent?: string }) {
     const bonsai = await this.prisma.bonsai.findFirst({
@@ -111,8 +113,8 @@ export class BonsaisService {
       throw new NotFoundException('盆景不存在或已下架');
     }
 
-    // 浏览量 +1，并写入浏览日志（异步并行）
-    await Promise.all([
+    // 事务保证：浏览量自增与浏览日志写入要么同时成功，要么同时回滚
+    await this.prisma.$transaction([
       this.prisma.bonsai.update({
         where: { id: bonsai.id },
         data: { viewCount: { increment: 1 } },
@@ -182,9 +184,7 @@ export class BonsaisService {
    * 管理员列表查询（含下架/全部）
    */
   async findAdminList(query: QueryBonsaiDto) {
-    const page = Number(query.page || 1);
-    const pageSize = Number(query.limit || 10);
-    const skip = (page - 1) * pageSize;
+    const { page, pageSize, skip } = resolvePagination(query);
 
     const where: Prisma.BonsaiWhereInput = {
       deletedAt: null,
@@ -203,13 +203,7 @@ export class BonsaisService {
       where.isFeatured = true;
     }
 
-    const sortFieldMap: Record<string, string> = {
-      createdAt: 'createdAt',
-      price: 'price',
-      viewCount: 'viewCount',
-      year: 'year',
-    };
-    const sortField = sortFieldMap[query.sortBy || 'createdAt'] || 'createdAt';
+    const sortField = BONSAI_SORT_FIELD_MAP[query.sortBy || 'createdAt'] || 'createdAt';
     const sortOrder = (query.order === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
 
     const [list, total] = await Promise.all([
@@ -230,13 +224,7 @@ export class BonsaisService {
       this.prisma.bonsai.count({ where }),
     ]);
 
-    return {
-      list,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
+    return buildPaginatedResponse(list, total, page, pageSize);
   }
 
   /**
@@ -259,17 +247,11 @@ export class BonsaisService {
 
   /**
    * 创建盆景
+   *
+   * 并发安全：slug 唯一性由数据库 UNIQUE 约束兜底，
+   * 捕获 P2002 错误转换为 ConflictException，避免 check-then-create 竞态
    */
   async create(dto: CreateBonsaiDto) {
-    // 检查 slug 唯一
-    const exist = await this.prisma.bonsai.findUnique({
-      where: { slug: dto.slug },
-      select: { id: true },
-    });
-    if (exist) {
-      throw new ConflictException('slug 已被使用');
-    }
-
     // 校验分类存在
     const category = await this.prisma.category.findUnique({
       where: { id: dto.categoryId },
@@ -281,16 +263,24 @@ export class BonsaisService {
 
     const { images, ...bonsaiData } = dto;
 
-    return this.prisma.bonsai.create({
-      data: {
-        ...bonsaiData,
-        price: new Prisma.Decimal(bonsaiData.price),
-        images: images
-          ? { create: images.map((img) => ({ url: img.url, isMain: img.isMain ?? false, sort: img.sort ?? 0 })) }
-          : undefined,
-      },
-      include: { images: true, category: true },
-    });
+    try {
+      return await this.prisma.bonsai.create({
+        data: {
+          ...bonsaiData,
+          price: new Prisma.Decimal(bonsaiData.price),
+          images: images
+            ? { create: images.map((img) => ({ url: img.url, isMain: img.isMain ?? false, sort: img.sort ?? 0 })) }
+            : undefined,
+        },
+        include: { images: true, category: true },
+      });
+    } catch (e) {
+      // P2002: Unique constraint failed — slug 并发重复
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('slug 已被使用');
+      }
+      throw e;
+    }
   }
 
   /**

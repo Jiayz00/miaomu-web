@@ -15,7 +15,7 @@ export class UpdateProfileDto {
   @Matches(/^[a-zA-Z0-9_]+$/, { message: '用户名仅允许字母、数字、下划线' })
   username?: string;
 
-  @ApiPropertyOptional({ description: '邮箱', example: 'user@penjing.com' })
+  @ApiPropertyOptional({ description: '邮箱', example: 'user@example.com' })
   @IsOptional()
   @IsEmail({}, { message: '邮箱格式不正确' })
   @Length(5, 100)

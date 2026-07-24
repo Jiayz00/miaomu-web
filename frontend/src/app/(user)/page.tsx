@@ -2,6 +2,7 @@
 
 'use client';
 
+import { useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -9,6 +10,7 @@ import { ArrowRight, TreePine, Leaf, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { BonsaiCard } from '@/components/BonsaiCard';
 import { BonsaiGridSkeleton, Skeleton } from '@/components/Loading';
+import { useFavoriteMap, useToggleFavorite } from '@/hooks/use-favorites';
 import type { Bonsai, Category } from '@/lib/types';
 
 // 分类封面图（使用稳定的外链图）
@@ -50,6 +52,20 @@ export default function HomePage() {
 
   const displayCategories = (categories || []).slice(0, 4);
   const displayFeatured = (featured || []).slice(0, 6);
+
+  // 批量查询精选盆景的收藏状态，避免每个卡片单独查询造成 N+1
+  const featuredIds = useMemo(
+    () => displayFeatured.map((b) => b.id),
+    [displayFeatured]
+  );
+  const { data: favoriteMap } = useFavoriteMap(featuredIds);
+  const toggleFav = useToggleFavorite();
+  const handleFavoriteToggle = useCallback(
+    (bonsaiId: number, favorited: boolean) => {
+      toggleFav.mutate({ bonsaiId, favorited });
+    },
+    [toggleFav]
+  );
 
   return (
     <>
@@ -152,13 +168,29 @@ export default function HomePage() {
           ) : displayFeatured.length > 0 ? (
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
               {displayFeatured.map((bonsai, i) => (
-                <BonsaiCard key={bonsai.id} bonsai={bonsai} index={i} />
+                <BonsaiCard
+                  key={bonsai.id}
+                  bonsai={bonsai}
+                  index={i}
+                  favorited={favoriteMap?.[bonsai.id] ?? false}
+                  onFavoriteToggle={handleFavoriteToggle}
+                />
               ))}
             </div>
           ) : (
-            <p className="py-20 text-center text-sm text-text-muted">
-              暂无精选盆景
-            </p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <p className="font-serif text-2xl text-primary">暂无精选盆景</p>
+              <p className="mt-2 text-sm text-text-muted">
+                浏览全部盆景，发现您心仪的藏品
+              </p>
+              <Link
+                href="/bonsais"
+                className="mt-8 inline-flex items-center gap-2 border border-accent px-8 py-3.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
+              >
+                浏览全部盆景
+                <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+              </Link>
+            </div>
           )}
 
           <div className="mt-16 text-center">

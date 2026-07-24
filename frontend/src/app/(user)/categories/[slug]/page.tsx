@@ -2,6 +2,7 @@
 
 'use client';
 
+import { useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,6 +10,7 @@ import { ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { BonsaiCard } from '@/components/BonsaiCard';
 import { BonsaiGridSkeleton, FullPageLoading } from '@/components/Loading';
+import { useFavoriteMap, useToggleFavorite } from '@/hooks/use-favorites';
 import type { Bonsai, Category } from '@/lib/types';
 
 export default function CategoryDetailPage({
@@ -43,12 +45,24 @@ export default function CategoryDetailPage({
     enabled: !!category,
   });
 
+  const list = bonsais || (category as Category & { bonsais?: Bonsai[] }).bonsais || [];
+
+  // 批量查询该分类下盆景的收藏状态，避免每个卡片单独查询造成 N+1
+  // 注意：hooks 必须在条件 return 之前调用，category 未加载时传入空数组
+  const bonsaiIds = useMemo(() => list.map((b) => b.id), [list]);
+  const { data: favoriteMap } = useFavoriteMap(bonsaiIds);
+  const toggleFav = useToggleFavorite();
+  const handleFavoriteToggle = useCallback(
+    (bonsaiId: number, favorited: boolean) => {
+      toggleFav.mutate({ bonsaiId, favorited });
+    },
+    [toggleFav]
+  );
+
   if (isLoading) return <FullPageLoading />;
   if (!category) {
     notFound();
   }
-
-  const list = bonsais || (category as Category & { bonsais?: Bonsai[] }).bonsais || [];
 
   return (
     <div className="pt-28">
@@ -72,18 +86,24 @@ export default function CategoryDetailPage({
 
       <div className="container-luxury py-16">
         {/* 面包屑 */}
-        <nav className="mb-10 flex items-center gap-2 text-xs text-text-muted">
+        <nav className="mb-10 flex items-center gap-2 text-xs text-text-muted" aria-label="面包屑导航">
           <Link href="/" className="hover:text-accent">首页</Link>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           <Link href="/categories" className="hover:text-accent">分类</Link>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           <span className="text-text-light">{category.name}</span>
         </nav>
 
         {list.length > 0 ? (
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {list.map((bonsai, i) => (
-              <BonsaiCard key={bonsai.id} bonsai={bonsai} index={i} />
+              <BonsaiCard
+                key={bonsai.id}
+                bonsai={bonsai}
+                index={i}
+                favorited={favoriteMap?.[bonsai.id] ?? false}
+                onFavoriteToggle={handleFavoriteToggle}
+              />
             ))}
           </div>
         ) : (

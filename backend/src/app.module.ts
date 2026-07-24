@@ -16,6 +16,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { HealthModule } from './modules/health/health.module';
 import configuration from './config/configuration';
 
 /**
@@ -53,6 +54,7 @@ import configuration from './config/configuration';
     ChatModule,
     UploadModule,
     AnalyticsModule,
+    HealthModule,
   ],
   providers: [
     // 全局异常过滤器

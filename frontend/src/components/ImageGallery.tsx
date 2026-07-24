@@ -24,8 +24,8 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
 
   if (!sorted.length) {
     return (
-      <div className="flex aspect-[4/5] w-full items-center justify-center bg-primary-dark/10">
-        <span className="font-serif text-6xl text-primary/20">盆</span>
+      <div className="flex aspect-[4/5] w-full items-center justify-center bg-primary-dark/10" role="img" aria-label="暂无盆景图片">
+        <span className="font-serif text-6xl text-primary/20" aria-hidden="true">盆</span>
       </div>
     );
   }
@@ -57,7 +57,7 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
 
       {/* 缩略图列表 */}
       {sorted.length > 1 && (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-5 gap-3" role="group" aria-label="图片缩略图选择">
           {sorted.map((img, i) => (
             <button
               key={img.id}
@@ -70,6 +70,7 @@ export function ImageGallery({ images, alt }: ImageGalleryProps) {
                   : 'opacity-60 hover:opacity-100'
               )}
               aria-label={`查看第 ${i + 1} 张图片`}
+              aria-current={i === activeIndex ? 'true' : undefined}
             >
               <Image
                 src={img.url}

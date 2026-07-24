@@ -57,12 +57,13 @@ export const DEFAULT_QUERY: BonsaiQuery = {
   sort: 'newest',
 };
 
-// 导航菜单
+// 导航菜单（用户端顶部导航）
 export const NAV_LINKS = [
   { href: '/', label: '首页' },
   { href: '/bonsais', label: '盆景收藏' },
   { href: '/categories', label: '分类' },
   { href: '/chat', label: '询价' },
+  { href: '/favorites', label: '我的收藏' },
 ] as const;
 
 // 管理后台导航

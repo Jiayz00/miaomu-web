@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, Star, Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
@@ -10,6 +10,32 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ORIGIN_OPTIONS, YEAR_OPTIONS } from '@/lib/constants';
 import type { Bonsai, Category } from '@/lib/types';
+
+/**
+ * 表单字段组件（必须在模块顶层定义，不能放在函数体内）
+ * 否则每次渲染会创建新组件类型，导致 input 失焦与重渲染问题
+ * 可访问性：通过 htmlFor/id 关联 label 与 input（WCAG 1.3.1 / 4.1.2）
+ */
+function Field({
+  label,
+  htmlFor,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label htmlFor={htmlFor} className="label-luxury">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 interface BonsaiImageItem {
   url: string;
@@ -63,10 +89,24 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  // 标记表单是否被修改过（用于离开提示）
+  const [dirty, setDirty] = useState(false);
 
   const updateField = (key: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
   };
+
+  // 离开页面前提示（防止误关丢失编辑内容）
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   // 图片上传
   const handleUpload = useCallback(async (files: FileList) => {
@@ -84,6 +124,8 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
         isMain: images.length === 0 && idx === 0,
       }));
       setImages((prev) => [...prev, ...newImages]);
+      // 图片新增属于表单变更，需标记 dirty
+      setDirty(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '图片上传失败');
     } finally {
@@ -113,6 +155,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
     setImages((prev) =>
       prev.map((img, i) => ({ ...img, isMain: i === index }))
     );
+    setDirty(true);
   };
 
   // 删除图片
@@ -125,6 +168,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       }
       return next;
     });
+    setDirty(true);
   };
 
   // 提交
@@ -169,6 +213,8 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       }
       queryClient.invalidateQueries({ queryKey: ['admin-bonsais'] });
       queryClient.invalidateQueries({ queryKey: ['bonsais'] });
+      // 保存成功，清除未保存标记，避免跳转时触发 beforeunload 提示
+      setDirty(false);
       router.push('/admin/bonsais');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '保存失败');
@@ -177,21 +223,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
     }
   };
 
-  // 表单字段组件
-  const Field = ({
-    label,
-    children,
-    className,
-  }: {
-    label: string;
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <div className={className}>
-      <label className="label-luxury">{label}</label>
-      {children}
-    </div>
-  );
+  // 表单字段组件已移至模块顶层（避免每次渲染创建新组件类型导致 input 失焦）
 
   const inputClass =
     'w-full border border-text-muted/20 bg-surface px-4 py-2.5 text-text transition-colors focus:border-accent focus:outline-none';
@@ -199,7 +231,10 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {error && (
-        <div className="border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div
+          className="border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600"
+          role="alert"
+        >
           {error}
         </div>
       )}
@@ -208,8 +243,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       <div className="border border-text-muted/15 bg-surface p-6">
         <h3 className="mb-6 font-serif text-xl text-primary">基本信息</h3>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field label="盆景名称" className="sm:col-span-2">
+          <Field label="盆景名称" htmlFor="bonsai-name" className="sm:col-span-2">
             <input
+              id="bonsai-name"
               type="text"
               value={form.name}
               onChange={(e) => updateField('name', e.target.value)}
@@ -218,8 +254,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             />
           </Field>
 
-          <Field label="描述" className="sm:col-span-2">
+          <Field label="描述" htmlFor="bonsai-description" className="sm:col-span-2">
             <textarea
+              id="bonsai-description"
               value={form.description}
               onChange={(e) => updateField('description', e.target.value)}
               className={cn(inputClass, 'min-h-[120px] resize-y')}
@@ -227,8 +264,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             />
           </Field>
 
-          <Field label="分类">
+          <Field label="分类" htmlFor="bonsai-category">
             <select
+              id="bonsai-category"
               value={form.categoryId}
               onChange={(e) => updateField('categoryId', e.target.value)}
               className={inputClass}
@@ -242,8 +280,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             </select>
           </Field>
 
-          <Field label="产地">
+          <Field label="产地" htmlFor="bonsai-origin">
             <select
+              id="bonsai-origin"
               value={form.origin}
               onChange={(e) => updateField('origin', e.target.value)}
               className={inputClass}
@@ -262,8 +301,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       <div className="border border-text-muted/15 bg-surface p-6">
         <h3 className="mb-6 font-serif text-xl text-primary">规格信息</h3>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="价格 (¥)">
+          <Field label="价格 (¥)" htmlFor="bonsai-price">
             <input
+              id="bonsai-price"
               type="number"
               step="0.01"
               value={form.price}
@@ -272,8 +312,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
               placeholder="0.00"
             />
           </Field>
-          <Field label="库存">
+          <Field label="库存" htmlFor="bonsai-stock">
             <input
+              id="bonsai-stock"
               type="number"
               value={form.stock}
               onChange={(e) => updateField('stock', e.target.value)}
@@ -281,8 +322,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
               placeholder="0"
             />
           </Field>
-          <Field label="年份">
+          <Field label="年份" htmlFor="bonsai-year">
             <select
+              id="bonsai-year"
               value={form.year}
               onChange={(e) => updateField('year', e.target.value)}
               className={inputClass}
@@ -294,8 +336,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
               ))}
             </select>
           </Field>
-          <Field label="树龄 (年)">
+          <Field label="树龄 (年)" htmlFor="bonsai-tree-age">
             <input
+              id="bonsai-tree-age"
               type="number"
               value={form.treeAge}
               onChange={(e) => updateField('treeAge', e.target.value)}
@@ -303,8 +346,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
               placeholder="可选"
             />
           </Field>
-          <Field label="高度 (cm)">
+          <Field label="高度 (cm)" htmlFor="bonsai-height">
             <input
+              id="bonsai-height"
               type="number"
               value={form.height}
               onChange={(e) => updateField('height', e.target.value)}
@@ -312,8 +356,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
               placeholder="可选"
             />
           </Field>
-          <Field label="宽度 (cm)">
+          <Field label="宽度 (cm)" htmlFor="bonsai-width">
             <input
+              id="bonsai-width"
               type="number"
               value={form.width}
               onChange={(e) => updateField('width', e.target.value)}
@@ -323,11 +368,12 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
           </Field>
         </div>
 
-        {/* 精选开关 */}
+        {/* 精选开关（WCAG 4.1.2：使用 aria-pressed 表达切换状态） */}
         <div className="mt-5 flex items-center gap-3">
           <button
             type="button"
             onClick={() => updateField('isFeatured', !form.isFeatured)}
+            aria-pressed={form.isFeatured}
             className={cn(
               'flex items-center gap-2 border px-4 py-2 text-sm transition-colors',
               form.isFeatured
@@ -339,6 +385,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
               className="h-4 w-4"
               strokeWidth={1.5}
               fill={form.isFeatured ? 'currentColor' : 'none'}
+              aria-hidden="true"
             />
             {form.isFeatured ? '已设为精选' : '设为精选'}
           </button>
@@ -349,8 +396,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       <div className="border border-text-muted/15 bg-surface p-6">
         <h3 className="mb-6 font-serif text-xl text-primary">盆景图片</h3>
 
-        {/* 拖拽上传区 */}
-        <div
+        {/* 拖拽上传区（WCAG 2.1.1：使用 button 而非 div onClick，保证键盘可访问） */}
+        <button
+          type="button"
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -358,17 +406,18 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
+          aria-label="上传盆景图片，点击或拖拽图片到此处"
           className={cn(
-            'flex cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors',
+            'flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors',
             dragOver
               ? 'border-accent bg-accent/5'
               : 'border-text-muted/30 hover:border-accent/50'
           )}
         >
           {uploading ? (
-            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
           ) : (
-            <Upload className="h-8 w-8 text-text-muted" strokeWidth={1} />
+            <Upload className="h-8 w-8 text-text-muted" strokeWidth={1} aria-hidden="true" />
           )}
           <p className="text-sm text-text-light">
             {uploading ? '上传中…' : '点击或拖拽图片到此处上传'}
@@ -381,8 +430,9 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             multiple
             onChange={handleFileChange}
             className="hidden"
+            aria-hidden="true"
           />
-        </div>
+        </button>
 
         {/* 已上传图片列表 */}
         {images.length > 0 && (
@@ -404,8 +454,8 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                     主图
                   </div>
                 )}
-                {/* 操作按钮 */}
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary-dark/60 opacity-0 transition-opacity group-hover:opacity-100">
+                {/* 操作按钮（WCAG 2.5.5：触摸目标提到 36x36，表格场景受限） */}
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary-dark/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                   {!img.isMain && (
                     <button
                       type="button"
@@ -413,10 +463,10 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                         e.stopPropagation();
                         setMain(i);
                       }}
-                      className="flex h-8 w-8 items-center justify-center bg-accent text-primary-dark"
-                      aria-label="设为主图"
+                      className="flex h-9 w-9 items-center justify-center bg-accent text-primary-dark"
+                      aria-label={`将第 ${i + 1} 张图片设为主图`}
                     >
-                      <Star className="h-4 w-4" fill="currentColor" />
+                      <Star className="h-4 w-4" fill="currentColor" aria-hidden="true" />
                     </button>
                   )}
                   <button
@@ -425,10 +475,10 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                       e.stopPropagation();
                       removeImage(i);
                     }}
-                    className="flex h-8 w-8 items-center justify-center bg-background text-primary"
-                    aria-label="删除图片"
+                    className="flex h-9 w-9 items-center justify-center bg-background text-primary"
+                    aria-label={`删除第 ${i + 1} 张图片`}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -441,10 +491,10 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       <div className="flex items-center gap-4">
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || uploading}
           className="flex items-center gap-2 bg-primary px-8 py-3 text-sm uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light disabled:opacity-50"
         >
-          {saving ? '保存中…' : isEdit ? '保存修改' : '创建盆景'}
+          {saving ? '保存中…' : uploading ? '图片上传中…' : isEdit ? '保存修改' : '创建盆景'}
         </button>
         <button
           type="button"

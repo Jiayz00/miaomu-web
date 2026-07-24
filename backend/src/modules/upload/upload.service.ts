@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
+import { MAX_FILE_SIZE, MAX_FILES_PER_REQUEST } from './upload.constants';
 
 /**
  * 文件上传服务
@@ -18,6 +19,8 @@ import sharp from 'sharp';
  * - Sharp 重采样至 1200px + mozjpeg 压缩
  * - 图片维度校验，防止 1×1 或超大像素触发 OOM
  * - 上传目录权限 0o750
+ *
+ * 配置单一来源：MAX_FILE_SIZE / MAX_FILES_PER_REQUEST 与 UploadController 共享常量
  */
 @Injectable()
 export class UploadService {
@@ -35,7 +38,8 @@ export class UploadService {
       'image/png',
       'image/webp',
     ];
-    this.maxFileSize = this.configService.get<number>('upload.maxFileSize') || 5 * 1024 * 1024;
+    // 优先读取环境变量配置；缺失时回退到模块常量（与 Controller 共享同一来源）
+    this.maxFileSize = this.configService.get<number>('upload.maxFileSize') || MAX_FILE_SIZE;
 
     this.ensureUploadDir();
   }
@@ -63,8 +67,8 @@ export class UploadService {
     if (!files || files.length === 0) {
       throw new BadRequestException('请至少上传一张图片');
     }
-    if (files.length > 10) {
-      throw new BadRequestException('单次最多上传 10 张图片');
+    if (files.length > MAX_FILES_PER_REQUEST) {
+      throw new BadRequestException(`单次最多上传 ${MAX_FILES_PER_REQUEST} 张图片`);
     }
 
     const results = await Promise.all(

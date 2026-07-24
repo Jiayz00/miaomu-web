@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,15 +11,8 @@ import { Menu, X, User, LogOut, Heart, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useMounted } from '@/app/providers';
 import { useAuth } from '@/hooks/use-auth';
+import { NAV_LINKS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-
-const NAV_LINKS = [
-  { href: '/', label: '首页' },
-  { href: '/bonsais', label: '盆景收藏' },
-  { href: '/categories', label: '分类' },
-  { href: '/chat', label: '询价' },
-  { href: '/favorites', label: '我的收藏' },
-];
 
 export function Header() {
   const pathname = usePathname();
@@ -29,6 +22,9 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileToggleRef = useRef<HTMLButtonElement>(null);
 
   // 监听滚动
   useEffect(() => {
@@ -43,6 +39,39 @@ export function Header() {
     setMobileOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
+
+  // 点击外部关闭用户菜单
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [userMenuOpen]);
+
+  // ESC 关闭移动端菜单并把焦点还回触发按钮（WCAG 2.1.2）
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileOpen(false);
+        mobileToggleRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [mobileOpen]);
+
+  // 移动端菜单打开后，将焦点放入菜单（基础焦点管理）
+  useEffect(() => {
+    if (mobileOpen && mobileMenuRef.current) {
+      const firstLink = mobileMenuRef.current.querySelector<HTMLAnchorElement>('a, button');
+      firstLink?.focus();
+    }
+  }, [mobileOpen]);
 
   // 首页用透明头部，其他页面默认实色
   const isHome = pathname === '/';
@@ -78,7 +107,10 @@ export function Header() {
         </Link>
 
         {/* 桌面端导航 */}
-        <nav className="hidden items-center gap-10 lg:flex">
+        <nav
+          className="hidden items-center gap-10 lg:flex"
+          aria-label="主导航"
+        >
           {NAV_LINKS.map((link) => {
             const active =
               link.href === '/'
@@ -88,6 +120,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
                   'relative text-sm tracking-wider transition-colors duration-300',
                   isTransparent
@@ -111,7 +144,7 @@ export function Header() {
         {/* 右侧用户区 */}
         <div className="hidden items-center gap-4 lg:flex">
           {mounted && isAuthenticated && user ? (
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
@@ -120,6 +153,8 @@ export function Header() {
                   isTransparent ? 'text-background' : 'text-text'
                 )}
                 aria-label="用户菜单"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
               >
                 <span
                   className={cn(
@@ -137,7 +172,7 @@ export function Header() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span>{user.username.charAt(0).toUpperCase()}</span>
+                    <span aria-hidden="true">{user.username.charAt(0).toUpperCase()}</span>
                   )}
                 </span>
               </button>
@@ -150,6 +185,8 @@ export function Header() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2 }}
                     className="absolute right-0 top-12 w-52 border border-text-muted/15 bg-surface py-2 shadow-xl"
+                    role="menu"
+                    aria-label="用户操作"
                   >
                     <div className="border-b border-text-muted/10 px-4 py-3">
                       <p className="text-sm font-medium text-primary">
@@ -161,33 +198,37 @@ export function Header() {
                     </div>
                     <Link
                       href="/profile"
+                      role="menuitem"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                     >
-                      <User className="h-4 w-4" strokeWidth={1.5} />
+                      <User className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       个人中心
                     </Link>
                     <Link
                       href="/favorites"
+                      role="menuitem"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                     >
-                      <Heart className="h-4 w-4" strokeWidth={1.5} />
+                      <Heart className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       我的收藏
                     </Link>
                     {user.role === 'ADMIN' && (
                       <Link
                         href="/admin/dashboard"
+                        role="menuitem"
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                       >
-                        <LayoutDashboard className="h-4 w-4" strokeWidth={1.5} />
+                        <LayoutDashboard className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                         管理后台
                       </Link>
                     )}
                     <button
                       type="button"
                       onClick={handleLogout}
+                      role="menuitem"
                       className="flex w-full items-center gap-3 border-t border-text-muted/10 px-4 py-2.5 text-sm text-text-light transition-colors hover:bg-background hover:text-primary"
                     >
-                      <LogOut className="h-4 w-4" strokeWidth={1.5} />
+                      <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       退出登录
                     </button>
                   </motion.div>
@@ -219,13 +260,16 @@ export function Header() {
 
         {/* 移动端汉堡按钮 */}
         <button
+          ref={mobileToggleRef}
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
           className={cn(
             'lg:hidden',
             isTransparent ? 'text-background' : 'text-primary'
           )}
-          aria-label="菜单"
+          aria-label={mobileOpen ? '关闭菜单' : '打开菜单'}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
         >
           {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -235,13 +279,21 @@ export function Header() {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
+            ref={mobileMenuRef}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
             className="overflow-hidden bg-background lg:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="移动端导航菜单"
+            id="mobile-menu"
           >
-            <nav className="container-luxury flex flex-col gap-1 py-6">
+            <nav
+              className="container-luxury flex flex-col gap-1 py-6"
+              aria-label="移动端主导航"
+            >
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
@@ -260,6 +312,14 @@ export function Header() {
                     >
                       个人中心
                     </Link>
+                    {user.role === 'ADMIN' && (
+                      <Link
+                        href="/admin/dashboard"
+                        className="flex-1 border border-primary bg-primary py-3 text-center text-xs uppercase tracking-[0.2em] text-background"
+                      >
+                        管理后台
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={handleLogout}

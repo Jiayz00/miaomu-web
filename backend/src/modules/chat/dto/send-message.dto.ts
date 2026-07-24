@@ -1,4 +1,4 @@
-import { IsInt, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsString, Length, MaxLength, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -12,8 +12,8 @@ export class SendMessageDto {
   @Min(1)
   roomId!: number;
 
-  @ApiProperty({ description: '消息内容', maxLength: 2000 })
+  @ApiProperty({ description: '消息内容', maxLength: 2000, minLength: 1 })
   @IsString()
-  @MaxLength(2000, { message: '消息内容不能超过 2000 字' })
+  @Length(1, 2000, { message: '消息内容长度需在 1-2000 之间' })
   content!: string;
 }

@@ -19,8 +19,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * 盆景图片 DTO
  */
 export class BonsaiImageDto {
-  @ApiProperty({ description: '图片 URL' })
+  @ApiProperty({ description: '图片 URL', maxLength: 500 })
   @IsString()
+  @Length(1, 500, { message: '图片 URL 长度需在 1-500 之间' })
   url!: string;
 
   @ApiPropertyOptional({ description: '是否为主图' })
@@ -32,6 +33,7 @@ export class BonsaiImageDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(0)
   sort?: number;
 }
 

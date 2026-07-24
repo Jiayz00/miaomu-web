@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nes
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { UploadService } from './upload.service';
+import { MAX_FILE_SIZE, MAX_FILES_PER_REQUEST } from './upload.constants';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -21,6 +22,9 @@ import { Role } from '@prisma/client';
  * 路由前缀：/admin/upload
  *
  * 限流：上传接口独立限流 10 次/分钟，防止 OOM
+ *
+ * 设计：文件大小上限与单次最大文件数从 upload.constants.ts 读取，
+ * 与 UploadService 共享同一常量，避免 5MB / 10 个等魔法数字散落多处
  */
 @ApiTags('文件上传')
 @ApiBearerAuth()
@@ -48,7 +52,7 @@ export class UploadController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: MAX_FILE_SIZE },
     }),
   )
   uploadSingle(@UploadedFile() file: Express.Multer.File) {
@@ -56,7 +60,7 @@ export class UploadController {
   }
 
   @Post('multiple')
-  @ApiOperation({ summary: '多图上传（最多10张）' })
+  @ApiOperation({ summary: `多图上传（最多${MAX_FILES_PER_REQUEST}张）` })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -73,10 +77,13 @@ export class UploadController {
     },
   })
   @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'files', maxCount: 10 }], {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
+    FileFieldsInterceptor(
+      [{ name: 'files', maxCount: MAX_FILES_PER_REQUEST }],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: MAX_FILE_SIZE },
+      },
+    ),
   )
   uploadMultiple(@UploadedFiles() files: { files?: Express.Multer.File[] }) {
     return this.uploadService.uploadMultiple(files.files || []);
