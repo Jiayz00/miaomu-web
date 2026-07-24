@@ -61,8 +61,10 @@ export function SectionConfigEditor({
           </label>
           <button
             type="button"
+            id="section-visible"
             role="switch"
             aria-checked={section.visible}
+            aria-label="是否显示该区块"
             onClick={() => onUpdate({ visible: !section.visible })}
             className={
               section.visible
@@ -514,10 +516,12 @@ function StoryConfig({ section, onUpdateConfig }: ConfigEditorProps) {
           {paragraphs.map((p, idx) => (
             <div key={idx} className="flex gap-2">
               <textarea
+                id={`story-paragraph-${idx}`}
                 value={p}
                 onChange={(e) => updateParagraph(idx, e.target.value)}
                 rows={3}
                 placeholder={`第 ${idx + 1} 段`}
+                aria-label={`第 ${idx + 1} 段内容`}
                 className={inputClass}
               />
               <button

@@ -16,10 +16,24 @@
 
 | 版本 | 发布日期 | 类型 | 摘要 | 详情 |
 |------|----------|------|------|------|
+| [v1.2.2](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.2) | 2026-07-25 | PATCH | CI 修复 / 中文 slug 404 / 聊天 WebSocket / 图片 URL / shell CRLF | [查看变更](CHANGELOG.md#v122---2026-07-25) |
 | [v1.2.1](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.1) | 2026-07-24 | PATCH | 服务器实测复测修复（SSR / ORB / 限流 / a11y） | [查看变更](CHANGELOG.md#v121---2026-07-24) |
 | [v1.2.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.0) | 2026-07-24 | MINOR | 管理端布局编辑 / 视频上传 / 收藏筛选 / UI 全面优化 | [查看变更](CHANGELOG.md#v120---2026-07-24) |
 | [v1.1.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.1.0) | 2026-07-22 | MINOR | 十轮严格审查修复（安全 / QA / 性能 / a11y / DevOps） | [查看变更](CHANGELOG.md#v110---2026-07-22) |
 | [v1.0.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.0.0) | 2026-07-20 | MAJOR | 盆景艺术展示与销售平台全栈首版 | [查看变更](CHANGELOG.md#v100---2026-07-20) |
+
+### v1.2.2 更新要点
+
+- **修复** GitHub Actions CI 三 job 全失败（Backend lint & build / Config syntax validate / Frontend lint & build）
+- **修复** 手动创建的中文 slug 盆景详情页 404（禁用静态生成 + 运行时 API_BASE_URL + 前后端 slug 编解码对齐）
+- **修复** 聊天接口异常与 WebSocket 无法收发消息（分页响应取 `list`、polling fallback、`/chat` namespace 对齐）
+- **修复** 图片 URL 被解析为内网后端地址（改为相对路径 + `NEXT_PUBLIC_PUBLIC_ORIGIN`）
+- **修复** 部署后容器启动失败 `/bin/bash^M: bad interpreter`（`.gitattributes` 强制 LF）
+- **修复** 管理端布局编辑器 a11y 警告（开关与 textarea 添加 id / role / aria-label）
+- **修复** `frontend/package-lock.json` BOM / 同步异常
+- **新增** Playwright E2E 全功能回归（用户端 / 管理端 / 移动端，25+ 截图）
+
+完整变更请跳转：[CHANGELOG.md#v122---2026-07-25](CHANGELOG.md#v122---2026-07-25)
 
 ### v1.2.1 更新要点
 

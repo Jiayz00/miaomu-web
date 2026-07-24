@@ -66,6 +66,7 @@ AGENTS.md
 
 # 浏览器测试产物（截图、测试脚本、临时文件）
 .test-browser/
+screenshots/
 ci-logs/
 ci-logs.zip
 
