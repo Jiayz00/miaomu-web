@@ -43,13 +43,16 @@ export function useAuth() {
   } = useAuthStore();
 
   // 登录
+  // 后端 TransformInterceptor 会将响应包装为 { success, data, message }
+  // 因此类型断言为 { data: AuthResponse }，解构 res.data 取实际 payload
   const login = useCallback(
     async (params: LoginParams): Promise<User> => {
-      const res = await api.post<AuthResponse>('/auth/login', params, {
+      const res = await api.post<{ data: AuthResponse }>('/auth/login', params, {
         skipAuth: true,
       });
-      setAuth(res);
-      return res.user;
+      const payload = res.data;
+      setAuth(payload);
+      return payload.user;
     },
     [setAuth]
   );
@@ -57,11 +60,12 @@ export function useAuth() {
   // 注册
   const register = useCallback(
     async (params: RegisterParams): Promise<User> => {
-      const res = await api.post<AuthResponse>('/auth/register', params, {
+      const res = await api.post<{ data: AuthResponse }>('/auth/register', params, {
         skipAuth: true,
       });
-      setAuth(res);
-      return res.user;
+      const payload = res.data;
+      setAuth(payload);
+      return payload.user;
     },
     [setAuth]
   );
