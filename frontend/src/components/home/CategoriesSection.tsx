@@ -11,14 +11,13 @@ import { resolveImageUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/Loading';
 import type { Category, HomeSection } from '@/lib/types';
 
-// 分类默认封面图（按位置兜底）
-// 使用 picsum.photos 的 seed URL：每次访问同一 seed 返回稳定图片
-const CATEGORY_IMAGES: Record<string, string> = {
-  default1: 'https://picsum.photos/seed/penjing-cat-1/800/1000',
-  default2: 'https://picsum.photos/seed/penjing-cat-2/800/1000',
-  default3: 'https://picsum.photos/seed/penjing-cat-3/800/1000',
-  default4: 'https://picsum.photos/seed/penjing-cat-4/800/1000',
-};
+// 分类无封面时的渐变兜底（不再使用随机图，避免与真实封面混淆）
+const CATEGORY_FALLBACK_GRADIENTS = [
+  'from-primary-dark to-primary',
+  'from-primary to-primary-light',
+  'from-accent/40 to-accent/10',
+  'from-text-muted/60 to-text-muted/20',
+];
 
 interface CategoriesSectionProps {
   section: HomeSection;
@@ -63,14 +62,18 @@ export function CategoriesSection({ section }: CategoriesSectionProps) {
                   href={`/categories/${cat.slug}`}
                   className="group relative block aspect-[3/4] overflow-hidden"
                 >
-                  <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110"
-                    style={{
-                      backgroundImage: `url(${resolveImageUrl(
-                        cat.coverImage || CATEGORY_IMAGES[`default${i + 1}`]
-                      )})`,
-                    }}
-                  />
+                  {cat.coverImage ? (
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110"
+                      style={{
+                        backgroundImage: `url(${resolveImageUrl(cat.coverImage)})`,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-br ${CATEGORY_FALLBACK_GRADIENTS[i % CATEGORY_FALLBACK_GRADIENTS.length]}`}
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/90 via-primary-dark/30 to-transparent transition-all duration-500 group-hover:from-primary-dark/95" />
                   <div className="absolute inset-x-0 bottom-0 p-6">
                     <TreePine

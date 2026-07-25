@@ -14,14 +14,17 @@ import { useAuthStore } from '@/stores/auth-store';
 import type { Bonsai } from '@/lib/types';
 
 // 收藏列表（分页）
-// 后端返回 { list, total, page, pageSize, totalPages }，提取 list 供页面使用
+// 后端返回 { list: { bonsai: Bonsai }[], total, page, pageSize, totalPages }
+// 提取 list 并映射为 Bonsai[] 供页面使用
 export function useFavorites() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery<Bonsai[]>({
     queryKey: ['favorites'],
     queryFn: async () => {
-      const res = await api.get<{ data: { list: Bonsai[]; total: number } }>('/favorites');
-      return res.data.list;
+      const res = await api.get<{ data: { list: { bonsai: Bonsai }[]; total: number } }>(
+        '/favorites'
+      );
+      return res.data.list.map((item) => item.bonsai);
     },
     enabled: isAuthenticated,
   });

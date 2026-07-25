@@ -123,11 +123,24 @@ export default function AdminCategoriesPage() {
     setModalOpen(true);
   };
 
-  // 封面上传
+  // 封面上传（带前端校验）
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const MAX_SIZE = 30 * 1024 * 1024;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError('仅支持 JPG、PNG、WebP 格式的图片');
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setError('图片大小不能超过 30MB');
+      return;
+    }
+
     setUploading(true);
+    setError('');
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -140,6 +153,8 @@ export default function AdminCategoriesPage() {
       setError(err instanceof ApiError ? err.message : '上传失败');
     } finally {
       setUploading(false);
+      // 允许重复选择同一文件
+      e.target.value = '';
     }
   };
 
@@ -284,22 +299,38 @@ export default function AdminCategoriesPage() {
               categories.map((cat) => (
                 <tr key={cat.id} className="text-sm transition-colors hover:bg-background/50">
                   <td className="px-4 py-3">
-                    <div className="flex h-12 w-16 items-center justify-center overflow-hidden bg-primary-dark/10">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(cat)}
+                      className="group relative flex h-16 w-24 items-center justify-center overflow-hidden rounded bg-primary-dark/10 transition-colors hover:ring-2 hover:ring-accent/50"
+                      aria-label={`编辑分类 ${cat.name} 的封面`}
+                    >
                       {cat.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={resolveImageUrl(cat.coverImage)}
                           alt={cat.name}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                          }}
                         />
                       ) : (
-                        <ImageIcon
-                          className="h-5 w-5 text-text-muted/50"
-                          strokeWidth={1.5}
-                          aria-hidden="true"
-                        />
+                        <div className="flex flex-col items-center justify-center gap-1 p-2 text-text-muted/60">
+                          <ImageIcon
+                            className="h-5 w-5"
+                            strokeWidth={1.5}
+                            aria-hidden="true"
+                          />
+                          <span className="text-[10px]">未设置封面</span>
+                        </div>
                       )}
-                    </div>
+                      {/* Hover overlay to prompt re-upload / edit */}
+                      <span className="absolute inset-0 flex items-center justify-center bg-primary-dark/60 text-[10px] uppercase tracking-wider text-background opacity-0 transition-opacity group-hover:opacity-100">
+                        更换封面
+                      </span>
+                    </button>
                   </td>
                   <td className="px-4 py-3 font-medium text-primary">{cat.name}</td>
                   <td className="px-4 py-3 text-text-light">{cat.slug}</td>
@@ -422,8 +453,8 @@ export default function AdminCategoriesPage() {
 
               <div>
                 <span className="label-luxury">封面图片</span>
-                <div className="flex items-center gap-4">
-                  <div className="flex h-20 w-28 items-center justify-center overflow-hidden border border-text-muted/20 bg-primary-dark/10">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="relative flex h-28 w-40 items-center justify-center overflow-hidden rounded border border-text-muted/20 bg-primary-dark/10">
                     {form.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -432,30 +463,47 @@ export default function AdminCategoriesPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <ImageIcon
-                        className="h-6 w-6 text-text-muted/50"
-                        strokeWidth={1.5}
-                        aria-hidden="true"
-                      />
+                      <div className="flex flex-col items-center gap-1 text-text-muted/50">
+                        <ImageIcon
+                          className="h-8 w-8"
+                          strokeWidth={1.5}
+                          aria-hidden="true"
+                        />
+                        <span className="text-xs">暂无封面</span>
+                      </div>
                     )}
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2 border border-text-muted/30 px-4 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent">
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Upload className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  <div className="flex flex-col items-start gap-2">
+                    <label className="flex cursor-pointer items-center gap-2 border border-text-muted/30 px-4 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent">
+                      {uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Upload className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                      )}
+                      {form.coverImage ? '重新上传' : '上传封面'}
+                      <input
+                        id="category-cover-upload"
+                        name="category-cover"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleUpload}
+                        className="hidden"
+                        aria-label="上传分类封面图片"
+                      />
+                    </label>
+                    {form.coverImage && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, coverImage: '' }))}
+                        className="text-xs text-text-muted underline transition-colors hover:text-red-500"
+                      >
+                        移除封面
+                      </button>
                     )}
-                    上传
-                    <input
-                      id="category-cover-upload"
-                      name="category-cover"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleUpload}
-                      className="hidden"
-                      aria-label="上传分类封面图片"
-                    />
-                  </label>
+                    <p className="max-w-[220px] text-xs text-text-muted">
+                      建议尺寸 800×1000 像素以上，JPG/PNG/WebP 格式。
+                    </p>
+                  </div>
                 </div>
               </div>
 

@@ -30,8 +30,8 @@ async function getActiveLayout(): Promise<HomeSection[]> {
   }
 }
 
-// 首页 SSR：每小时重新生成一次（ISR），平衡实时性与性能
-export const revalidate = 3600;
+// 首页 SSR：每次请求重新获取布局，确保布局编辑器保存后立即生效
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const sections = await getActiveLayout();
