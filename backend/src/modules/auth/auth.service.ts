@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { Request } from 'express';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -136,7 +137,7 @@ export class AuthService {
    * - 水平越权：登录返回的 token 携带 sub（用户 ID），所有用户态接口用 user.sub 隔离
    * - 垂直越权：admin 接口由 AdminGuard + Roles(ADMIN) 守卫，普通用户 token 无法访问
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req?: Request) {
     // account 可为用户名或邮箱，统一查找
     // 用 OR 条件一次查询，避免多次往返
     const user = await this.prisma.user.findFirst({
@@ -174,13 +175,16 @@ export class AuthService {
       throw new UnauthorizedException('账号已被禁用，请联系管理员');
     }
 
-    // 登录成功：重置失败计数，记录最后登录时间
+    // 登录成功：重置失败计数，记录最后登录时间、IP 与活动时间
+    const clientIp = this.extractClientIp(req);
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         failedLoginAttempts: 0,
         lockedUntil: null,
         lastLoginAt: new Date(),
+        lastLoginIp: clientIp,
+        lastActiveAt: new Date(),
       },
     });
 
@@ -380,6 +384,7 @@ export class AuthService {
       data: {
         password: newHashed,
         passwordChangedAt: new Date(),
+        lastActiveAt: new Date(),
       },
     });
     await this.redisService.revokeAllRefreshTokens(userId);
@@ -406,11 +411,12 @@ export class AuthService {
     }
 
     // 仅更新提供的字段
-    const data: Record<string, string> = {};
+    const data: Record<string, string | Date> = {};
     if (dto.username !== undefined) data.username = dto.username;
     if (dto.email !== undefined) data.email = dto.email;
     if (dto.phone !== undefined) data.phone = dto.phone;
     if (dto.avatar !== undefined) data.avatar = dto.avatar;
+    data.lastActiveAt = new Date();
 
     // 显式声明类型，避免隐式 any（符合 AGENTS.md 禁止 any 规范）
     let updated: Prisma.UserGetPayload<{
@@ -457,6 +463,22 @@ export class AuthService {
 
     this.logger.log(`📝 用户更新个人信息: ${updated.username} (ID: ${userId})`);
     return updated;
+  }
+
+  /**
+   * 从请求中提取真实客户端 IP
+   * 优先使用 X-Forwarded-For（反向代理场景），回退到 req.ip
+   */
+  private extractClientIp(req?: Request): string | null {
+    if (!req) return null;
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      return forwarded[0].split(',')[0].trim();
+    }
+    return req.ip || null;
   }
 
   /**

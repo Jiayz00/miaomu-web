@@ -29,6 +29,10 @@ export function useSocket() {
     const socket = connectSocket();
     if (!socket) return;
 
+    // 关键：socket 可能已连接（单例复用），connect 事件不会再触发，
+    // 因此必须根据 socket.connected 同步初始化状态，否则界面会一直显示"连接中"
+    setIsConnected(socket.connected);
+
     const onConnect = () => setIsConnected(true);
     const onDisconnect = () => setIsConnected(false);
     socket.on('connect', onConnect);

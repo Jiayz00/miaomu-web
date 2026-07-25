@@ -7,7 +7,7 @@
 // 与后端 backend/src/modules/settings/settings.service.ts 的 DEFAULT_HOMEPAGE_SECTIONS 保持一致
 // 修改时需同步两端
 
-import type { HomeSection } from './types';
+import type { HomeSection, CarouselSlide } from './types';
 
 export const DEFAULT_HOMEPAGE_SECTIONS: HomeSection[] = [
   {
@@ -100,14 +100,18 @@ export interface SectionTypeMeta {
 
 export const SECTION_TYPE_META: SectionTypeMeta[] = [
   { type: 'hero', label: '首屏大图', description: 'Hero 区域：大图 + 标题 + CTA 按钮' },
+  { type: 'carousel', label: '轮播图', description: '多张图片轮播，支持标题与链接' },
   { type: 'featured', label: '精选盆景', description: '展示精选盆景，可配置数量' },
   { type: 'categories', label: '分类导航', description: '展示盆景分类卡片' },
   { type: 'bonsai-grid', label: '盆景网格', description: '盆景列表网格，可配置数量与筛选' },
   { type: 'showcase', label: '指定展示', description: '展示指定 ID 的盆景' },
+  { type: 'product-list', label: '产品列表', description: '按分类或热门/最新展示盆景' },
+  { type: 'text-image', label: '图文区块', description: '左图右文或右图左文布局' },
   { type: 'story', label: '品牌故事', description: '图文并茂的品牌故事区块' },
   { type: 'cta', label: '行动号召', description: 'CTA 询价引导区块' },
   { type: 'contact', label: '联系方式', description: '展示站点联系信息' },
   { type: 'stats', label: '数据统计', description: '展示平台数据统计' },
+  { type: 'text', label: '纯文本/HTML', description: '自定义文字或 HTML 内容' },
 ];
 
 // 根据区块类型生成默认 config
@@ -182,6 +186,41 @@ export function getDefaultConfigByType(
       return {
         eyebrow: '平台数据',
         items: ['bonsais', 'categories', 'views'] as string[],
+      };
+    case 'carousel':
+      return {
+        eyebrow: '精彩推荐',
+        slides: [
+          {
+            image:
+              'https://images.unsplash.com/photo-1524598171347-833e3329d8ab?auto=format&fit=crop&w=1920&q=80',
+            title: '方寸之间见天地',
+            subtitle: '凝练自然之美，传承千年技艺',
+            link: '/bonsais',
+          },
+        ] as CarouselSlide[],
+      };
+    case 'text-image':
+      return {
+        image:
+          'https://images.unsplash.com/photo-1597055181300-e3633a917e3a?auto=format&fit=crop&w=1000&q=80',
+        body: '在这里编辑您的图文内容，讲述品牌故事或展示盆景文化。',
+        buttonText: '了解更多',
+        buttonLink: '/bonsais',
+        imagePosition: 'left',
+      };
+    case 'product-list':
+      return {
+        source: 'latest',
+        limit: 8,
+        eyebrow: '盆景收藏',
+        ctaText: '浏览全部',
+        ctaLink: '/bonsais',
+      };
+    case 'text':
+      return {
+        content:
+          '<p>在这里输入自定义文字或 HTML 内容。</p>',
       };
     default:
       return {};

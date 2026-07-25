@@ -16,6 +16,10 @@ import { StorySection } from './StorySection';
 import { CtaSection } from './CtaSection';
 import { ContactSection } from './ContactSection';
 import { StatsSection } from './StatsSection';
+import { CarouselBlock } from './CarouselBlock';
+import { TextImageBlock } from './TextImageBlock';
+import { ProductListBlock } from './ProductListBlock';
+import { TextBlock } from './TextBlock';
 
 interface HomeRendererProps {
   sections: HomeSection[];
@@ -35,6 +39,10 @@ const SECTION_COMPONENTS: Record<
   cta: CtaSection,
   contact: ContactSection,
   stats: StatsSection,
+  carousel: CarouselBlock,
+  'text-image': TextImageBlock,
+  'product-list': ProductListBlock,
+  text: TextBlock,
 };
 
 export function HomeRenderer({ sections }: HomeRendererProps) {

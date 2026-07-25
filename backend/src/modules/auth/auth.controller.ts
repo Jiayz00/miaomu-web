@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { UploadService } from '../upload/upload.service';
 import { MAX_FILE_SIZE } from '../upload/upload.constants';
@@ -44,8 +45,11 @@ export class AuthController {
   @Post('login')
   @Throttle({ auth: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: '用户登录（统一入口，按角色区分权限）' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+  ) {
+    return this.authService.login(dto, req);
   }
 
   @Public()

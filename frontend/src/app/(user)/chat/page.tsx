@@ -3,6 +3,7 @@
 // 响应式优化：
 // - 移动端（< md）默认显示会话列表，点击会话切换到聊天界面，带返回按钮
 // - 桌面端左右两栏并排显示
+// - 新增筛选/搜索面板：盆景名称、用户名、消息关键字、时间区间，支持收起/展开
 
 'use client';
 
@@ -10,14 +11,44 @@ import { useState, useEffect, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { MessageSquare, Plus, ArrowLeft } from 'lucide-react';
+import {
+  MessageSquare,
+  Plus,
+  ArrowLeft,
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  X,
+} from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { ChatWidget, ChatRoomItem } from '@/components/ChatWidget';
 import { InlineLoading } from '@/components/Loading';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
-import { formatDateTime, getMainImage } from '@/lib/utils';
+import { getMainImage, toQueryString, cn } from '@/lib/utils';
 import type { ChatRoom } from '@/lib/types';
+
+interface RoomFilters {
+  bonsaiName: string;
+  username: string;
+  keyword: string;
+  startDate: string;
+  endDate: string;
+}
+
+const EMPTY_FILTERS: RoomFilters = {
+  bonsaiName: '',
+  username: '',
+  keyword: '',
+  startDate: '',
+  endDate: '',
+};
+
+function isFiltersEmpty(filters: RoomFilters): boolean {
+  return Object.values(filters).every((v) => !v);
+}
 
 function ChatPageContent() {
   const searchParams = useSearchParams();
@@ -36,10 +67,22 @@ function ChatPageContent() {
   // 移动端视图切换：'list' | 'chat'
   const [mobileView, setMobileView] = useState<'list' | 'chat'>(initialRoomId ? 'chat' : 'list');
 
-  // 会话列表
+  // 筛选/搜索状态
+  const [filters, setFilters] = useState<RoomFilters>(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<RoomFilters>(EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const hasFilters = !isFiltersEmpty(appliedFilters);
+
+  // 会话列表（无筛选时走列表接口，有筛选时走搜索接口）
   const { data: rooms, isLoading } = useQuery<ChatRoom[]>({
-    queryKey: ['chat-rooms'],
+    queryKey: ['chat-rooms', hasFilters ? appliedFilters : 'all'],
     queryFn: async () => {
+      if (hasFilters) {
+        const qs = toQueryString(appliedFilters as unknown as Record<string, unknown>);
+        const res = await api.get<{ data: ChatRoom[] }>(`/chat/rooms/search${qs}`);
+        return res.data;
+      }
       const res = await api.get<{ data: ChatRoom[] }>('/chat/rooms');
       return res.data;
     },
@@ -63,6 +106,19 @@ function ChatPageContent() {
     setMobileView('list');
   };
 
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+    setActiveRoomId(null);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setActiveRoomId(null);
+  };
+
+  const activeFilterCount = Object.values(appliedFilters).filter(Boolean).length;
+
   return (
     <div className="pt-24">
       <div className="container-luxury py-10">
@@ -72,6 +128,177 @@ function ChatPageContent() {
           <p className="mt-3 text-sm text-text-light">
             与我们的顾问一对一交流，开启收藏之旅
           </p>
+        </div>
+
+        {/* 筛选/搜索面板 */}
+        <div className="mx-auto mb-4 max-w-6xl">
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className={cn(
+              'flex w-full items-center justify-between border px-4 py-3 text-sm transition-colors md:w-auto',
+              showFilters || activeFilterCount > 0
+                ? 'border-accent bg-accent/5 text-primary'
+                : 'border-text-muted/20 text-text-light hover:border-accent hover:text-accent'
+            )}
+            aria-expanded={showFilters}
+          >
+            <span className="flex items-center gap-2">
+              <Filter className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              筛选与搜索
+              {activeFilterCount > 0 && (
+                <span className="ml-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-medium text-primary-dark">
+                  {activeFilterCount}
+                </span>
+              )}
+            </span>
+            {showFilters ? (
+              <ChevronUp className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <ChevronDown className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            )}
+          </button>
+
+          {showFilters && (
+            <div className="mt-3 border border-text-muted/15 bg-surface p-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {/* 盆景名称 */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="filter-bonsai-name"
+                    className="text-xs uppercase tracking-wider text-text-muted"
+                  >
+                    盆景名称
+                  </label>
+                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                    <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                    <input
+                      id="filter-bonsai-name"
+                      type="text"
+                      value={filters.bonsaiName}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, bonsaiName: e.target.value }))
+                      }
+                      placeholder="按盆景名称筛选…"
+                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 用户名 */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="filter-username"
+                    className="text-xs uppercase tracking-wider text-text-muted"
+                  >
+                    用户名
+                  </label>
+                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                    <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                    <input
+                      id="filter-username"
+                      type="text"
+                      value={filters.username}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, username: e.target.value }))
+                      }
+                      placeholder="按发送者用户名筛选…"
+                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 开始日期 */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="filter-start-date"
+                    className="text-xs uppercase tracking-wider text-text-muted"
+                  >
+                    开始日期
+                  </label>
+                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                    <Calendar className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                    <input
+                      id="filter-start-date"
+                      type="date"
+                      value={filters.startDate}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, startDate: e.target.value }))
+                      }
+                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 结束日期 */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="filter-end-date"
+                    className="text-xs uppercase tracking-wider text-text-muted"
+                  >
+                    结束日期
+                  </label>
+                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                    <Calendar className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                    <input
+                      id="filter-end-date"
+                      type="date"
+                      value={filters.endDate}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, endDate: e.target.value }))
+                      }
+                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 消息关键字 */}
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
+                  <label
+                    htmlFor="filter-keyword"
+                    className="text-xs uppercase tracking-wider text-text-muted"
+                  >
+                    消息内容
+                  </label>
+                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                    <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                    <input
+                      id="filter-keyword"
+                      type="text"
+                      value={filters.keyword}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, keyword: e.target.value }))
+                      }
+                      placeholder="搜索消息内容关键字…"
+                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleApplyFilters}
+                  className="flex items-center gap-2 bg-primary px-5 py-2 text-xs uppercase tracking-[0.15em] text-background transition-colors hover:bg-primary-light"
+                >
+                  <Search className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                  搜索
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="flex items-center gap-2 border border-text-muted/30 px-5 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                  重置
+                </button>
+                <p className="text-xs text-text-muted">
+                  至少填写一项即可搜索
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 聊天容器 */}
@@ -108,16 +335,18 @@ function ChatPageContent() {
                 <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
                   <Plus className="h-8 w-8 text-text-muted/40" strokeWidth={1} />
                   <p className="text-sm text-text-muted">
-                    暂无会话
+                    {hasFilters ? '未找到匹配的会话' : '暂无会话'}
                     <br />
-                    从盆景详情页发起询价
+                    {!hasFilters && '从盆景详情页发起询价'}
                   </p>
-                  <Link
-                    href="/bonsais"
-                    className="mt-2 inline-flex items-center gap-2 border border-accent px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
-                  >
-                    去浏览盆景
-                  </Link>
+                  {!hasFilters && (
+                    <Link
+                      href="/bonsais"
+                      className="mt-2 inline-flex items-center gap-2 border border-accent px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
+                    >
+                      去浏览盆景
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

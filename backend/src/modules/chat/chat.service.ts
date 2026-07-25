@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { resolvePagination, buildPaginatedResponse } from '../../common/dto/pagination.helper';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { SearchRoomsDto } from './dto/search-rooms.dto';
 
 /**
  * 聊天服务
@@ -27,8 +28,32 @@ export class ChatService {
    * 应用层去重（findFirst 已存在）或网络层冲突被捕获，最终回查复用现有会话。
    * 配合 [user_id, bonsai_id] 复合索引，findFirst 回查高效。
    */
+  // 创建会话时关联盆景的完整 include，统一维护避免重复
+  private readonly roomWithBonsaiInclude = {
+    bonsai: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        images: { select: { id: true, url: true, isMain: true }, orderBy: { sort: 'asc' as const } },
+      },
+    },
+    _count: { select: { messages: true } },
+  };
+
   async createRoom(userId: number, dto: CreateRoomDto) {
-    // 校验盆景存在
+    // 快速复用路径：同一用户对同一盆景已有会话则直接返回
+    // 注意：先查重再校验盆景，复用场景只需 1 次查询，显著降低延迟
+    if (dto.bonsaiId) {
+      const exist = await this.prisma.chatRoom.findFirst({
+        where: { userId, bonsaiId: dto.bonsaiId },
+        include: this.roomWithBonsaiInclude,
+      });
+      if (exist) return exist;
+    }
+
+    // 无现有会话时校验盆景存在
     if (dto.bonsaiId) {
       const bonsai = await this.prisma.bonsai.findFirst({
         where: { id: dto.bonsaiId, deletedAt: null },
@@ -37,25 +62,10 @@ export class ChatService {
       if (!bonsai) throw new NotFoundException('盆景不存在');
     }
 
-    // 同一用户对同一盆景已有会话则复用
-    if (dto.bonsaiId) {
-      const exist = await this.prisma.chatRoom.findFirst({
-        where: { userId, bonsaiId: dto.bonsaiId },
-        include: {
-          bonsai: { select: { id: true, name: true, slug: true, price: true } },
-          _count: { select: { messages: true } },
-        },
-      });
-      if (exist) return exist;
-    }
-
     try {
       return await this.prisma.chatRoom.create({
         data: { userId, bonsaiId: dto.bonsaiId ?? null },
-        include: {
-          bonsai: { select: { id: true, name: true, slug: true, price: true } },
-          _count: { select: { messages: true } },
-        },
+        include: this.roomWithBonsaiInclude,
       });
     } catch (e) {
       // 并发场景：另一请求已创建同 (userId, bonsaiId) 会话 → 回查复用
@@ -66,10 +76,7 @@ export class ChatService {
       ) {
         const exist = await this.prisma.chatRoom.findFirst({
           where: { userId, bonsaiId: dto.bonsaiId },
-          include: {
-            bonsai: { select: { id: true, name: true, slug: true, price: true } },
-            _count: { select: { messages: true } },
-          },
+          include: this.roomWithBonsaiInclude,
         });
         if (exist) return exist;
       }
@@ -84,7 +91,15 @@ export class ChatService {
     return this.prisma.chatRoom.findMany({
       where: { userId },
       include: {
-        bonsai: { select: { id: true, name: true, slug: true, price: true } },
+        bonsai: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            price: true,
+            images: { select: { id: true, url: true, isMain: true }, orderBy: { sort: 'asc' as const } },
+          },
+        },
         user: {
           select: { id: true, username: true, avatar: true },
         },
@@ -212,11 +227,182 @@ export class ChatService {
       take: 200,
       include: {
         user: { select: { id: true, username: true, avatar: true, email: true } },
-        bonsai: { select: { id: true, name: true, slug: true } },
+        bonsai: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            images: { select: { id: true, url: true, isMain: true }, orderBy: { sort: 'asc' as const } },
+          },
+        },
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
+        _count: { select: { messages: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  /**
+   * 构建会话搜索条件
+   */
+  private buildRoomSearchWhere(
+    query: SearchRoomsDto,
+    options: { userId?: number },
+  ): Prisma.ChatRoomWhereInput {
+    const conditions: Prisma.ChatRoomWhereInput[] = [];
+
+    if (options.userId !== undefined) {
+      conditions.push({ userId: options.userId });
+    }
+
+    if (query.bonsaiName?.trim()) {
+      conditions.push({
+        bonsai: { name: { contains: query.bonsaiName.trim() } },
+      });
+    }
+
+    if (query.startDate || query.endDate) {
+      const dateFilter: Prisma.DateTimeFilter = {};
+      if (query.startDate) {
+        dateFilter.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        // 结束日期包含当天 23:59:59
+        const end = new Date(query.endDate);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.lte = end;
+      }
+      conditions.push({ createdAt: dateFilter });
+    }
+
+    return conditions.length > 0 ? { AND: conditions } : {};
+  }
+
+  /**
+   * 根据消息关键字筛选出的 roomId 集合
+   */
+  private async findRoomIdsByKeyword(keyword: string): Promise<number[]> {
+    const messages = await this.prisma.chatMessage.findMany({
+      where: { content: { contains: keyword.trim() } },
+      select: { roomId: true },
+      distinct: ['roomId'],
+    });
+    return messages.map((m) => m.roomId);
+  }
+
+  /**
+   * 用户端：搜索/筛选我的会话
+   *
+   * - bonsaiName 匹配盆景名称
+   * - username 匹配消息发送者用户名（便于用户按顾问检索）
+   * - keyword 匹配消息内容
+   * - startDate/endDate 按会话创建时间筛选
+   */
+  async searchMyRooms(userId: number, query: SearchRoomsDto) {
+    const roomIdsByKeyword = query.keyword?.trim()
+      ? await this.findRoomIdsByKeyword(query.keyword)
+      : undefined;
+
+    const usernameConditions: Prisma.ChatRoomWhereInput[] = [];
+    if (query.username?.trim()) {
+      // 用户名可匹配消息发送者（顾问）
+      usernameConditions.push({
+        messages: {
+          some: {
+            sender: { username: { contains: query.username.trim() } },
+          },
+        },
+      });
+    }
+
+    const baseWhere = this.buildRoomSearchWhere(query, { userId });
+
+    const where: Prisma.ChatRoomWhereInput =
+      usernameConditions.length > 0 || roomIdsByKeyword !== undefined
+        ? {
+            AND: [
+              baseWhere,
+              ...(roomIdsByKeyword !== undefined
+                ? [{ id: { in: roomIdsByKeyword } } as Prisma.ChatRoomWhereInput]
+                : []),
+              ...(usernameConditions.length > 0
+                ? [{ OR: usernameConditions } as Prisma.ChatRoomWhereInput]
+                : []),
+            ],
+          }
+        : baseWhere;
+
+    return this.prisma.chatRoom.findMany({
+      where,
+      include: {
+        bonsai: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            price: true,
+            images: { select: { id: true, url: true, isMain: true }, orderBy: { sort: 'asc' as const } },
+          },
+        },
+        user: { select: { id: true, username: true, avatar: true } },
+        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+        _count: { select: { messages: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  /**
+   * 管理员：搜索/筛选所有会话
+   *
+   * - bonsaiName 匹配盆景名称
+   * - username 匹配会话所属用户用户名
+   * - keyword 匹配消息内容
+   * - startDate/endDate 按会话创建时间筛选
+   */
+  async searchAdminRooms(query: SearchRoomsDto) {
+    const roomIdsByKeyword = query.keyword?.trim()
+      ? await this.findRoomIdsByKeyword(query.keyword)
+      : undefined;
+
+    const conditions: Prisma.ChatRoomWhereInput[] = [];
+
+    const baseWhere = this.buildRoomSearchWhere(query, {});
+    if (Object.keys(baseWhere).length > 0) {
+      conditions.push(baseWhere);
+    }
+
+    if (query.username?.trim()) {
+      // 管理员视角：用户名匹配会话所有者
+      conditions.push({
+        user: { username: { contains: query.username.trim() } },
+      });
+    }
+
+    if (roomIdsByKeyword !== undefined) {
+      conditions.push({ id: { in: roomIdsByKeyword } });
+    }
+
+    const where: Prisma.ChatRoomWhereInput =
+      conditions.length > 0 ? { AND: conditions } : {};
+
+    return this.prisma.chatRoom.findMany({
+      take: 200,
+      where,
+      include: {
+        user: { select: { id: true, username: true, avatar: true, email: true } },
+        bonsai: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            images: { select: { id: true, url: true, isMain: true }, orderBy: { sort: 'asc' as const } },
+          },
+        },
+        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
         _count: { select: { messages: true } },
       },
       orderBy: { updatedAt: 'desc' },

@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BonsaisService } from '../bonsais/bonsais.service';
 import { CategoriesService } from '../categories/categories.service';
 import { FavoritesService } from '../favorites/favorites.service';
 import { UsersService } from '../users/users.service';
+import { AnalyticsQueryDto } from './dto/query-days.dto';
 
 /**
  * 数据分析服务
@@ -71,43 +72,41 @@ export class AnalyticsService {
 
   /**
    * 浏览量趋势
-   * @param days 天数（7 或 30）
+   * @param query 支持 days 预设或 startDate/endDate 自定义区间
    *
    * 性能设计：
    * 使用 MySQL DATE_FORMAT 在数据库层按天聚合，避免将所有 ViewLog 拉到内存分组。
    * 假设日活 1 万次浏览、30 天 = 30 万条记录：原实现单次响应约 15MB，
    * 改为聚合后仅返回 30 行（约 1KB），性能提升 1000+ 倍。
    */
-  async getViewsTrend(days: number) {
-    const validDays = this.resolveTrendDays(days);
-    const startDate = this.getTrendStartDate(validDays);
+  async getViewsTrend(query: AnalyticsQueryDto) {
+    const { startDate, endDate, days } = this.resolveDateRange(query);
 
     const rows = await this.prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
       SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COUNT(*) AS count
       FROM view_logs
-      WHERE created_at >= ${startDate}
+      WHERE created_at >= ${startDate} AND created_at <= ${endDate}
       GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
     `;
 
-    return this.buildTrendResult(validDays, startDate, rows);
+    return this.buildTrendResult(days, startDate, rows);
   }
 
   /**
    * 收藏量趋势
    * 同 getViewsTrend，使用数据库聚合避免全表扫描。
    */
-  async getFavoritesTrend(days: number) {
-    const validDays = this.resolveTrendDays(days);
-    const startDate = this.getTrendStartDate(validDays);
+  async getFavoritesTrend(query: AnalyticsQueryDto) {
+    const { startDate, endDate, days } = this.resolveDateRange(query);
 
     const rows = await this.prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
       SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COUNT(*) AS count
       FROM favorites
-      WHERE created_at >= ${startDate}
+      WHERE created_at >= ${startDate} AND created_at <= ${endDate}
       GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
     `;
 
-    return this.buildTrendResult(validDays, startDate, rows);
+    return this.buildTrendResult(days, startDate, rows);
   }
 
   /**
@@ -211,9 +210,8 @@ export class AnalyticsService {
    * - 询价量趋势（按天聚合）
    * - 询价转化漏斗：会话数 → 有管理员回复的会话数 → 已处理会话数
    */
-  async getInquiryStats(days: number) {
-    const validDays = this.resolveTrendDays(days);
-    const startDate = this.getTrendStartDate(validDays);
+  async getInquiryStats(query: AnalyticsQueryDto) {
+    const { startDate, endDate, days } = this.resolveDateRange(query);
 
     const [
       pendingCount,
@@ -229,7 +227,7 @@ export class AnalyticsService {
       this.prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
         SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COUNT(*) AS count
         FROM chat_rooms
-        WHERE created_at >= ${startDate}
+        WHERE created_at >= ${startDate} AND created_at <= ${endDate}
         GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
       `,
       // 有管理员回复的会话数（累计指标，用于计算回复率）
@@ -242,7 +240,7 @@ export class AnalyticsService {
       `,
     ]);
 
-    const trend = this.buildTrendResult(validDays, startDate, recentInquiryTrend);
+    const trend = this.buildTrendResult(days, startDate, recentInquiryTrend);
 
     return {
       pendingCount,
@@ -262,26 +260,57 @@ export class AnalyticsService {
   /**
    * 用户增长趋势（按天聚合新注册用户数）
    */
-  async getUserGrowthTrend(days: number) {
-    const validDays = this.resolveTrendDays(days);
-    const startDate = this.getTrendStartDate(validDays);
+  async getUserGrowthTrend(query: AnalyticsQueryDto) {
+    const { startDate, endDate, days } = this.resolveDateRange(query);
 
     const rows = await this.prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
       SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COUNT(*) AS count
       FROM users
-      WHERE created_at >= ${startDate}
+      WHERE created_at >= ${startDate} AND created_at <= ${endDate}
       GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
     `;
 
-    return this.buildTrendResult(validDays, startDate, rows);
+    return this.buildTrendResult(days, startDate, rows);
   }
 
   /**
-   * 校验趋势天数，仅允许 7 或 30，默认 7
+   * 解析查询条件为统一的起止日期与天数
+   * 优先使用自定义 startDate/endDate；缺失时回退到 days 预设。
+   */
+  private resolveDateRange(query: AnalyticsQueryDto): {
+    startDate: Date;
+    endDate: Date;
+    days: number;
+  } {
+    if (query.startDate && query.endDate) {
+      const startDate = this.parseLocalDate(query.startDate, true);
+      const endDate = this.parseLocalDate(query.endDate, false);
+
+      if (startDate.getTime() > endDate.getTime()) {
+        throw new BadRequestException('开始日期不能晚于结束日期');
+      }
+
+      const days = this.diffDaysInclusive(startDate, endDate);
+      if (days > 365) {
+        throw new BadRequestException('自定义时间区间不能超过 365 天');
+      }
+
+      return { startDate, endDate, days };
+    }
+
+    const validDays = this.resolveTrendDays(query.days ?? 7);
+    const startDate = this.getTrendStartDate(validDays);
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate, days: validDays };
+  }
+
+  /**
+   * 校验趋势天数，仅允许 7、30、90，默认 7
    * 设计原则：DRY，4 个趋势接口共享同一校验
    */
   private resolveTrendDays(days: number): number {
-    return [7, 30].includes(days) ? days : 7;
+    return [7, 30, 90].includes(days) ? days : 7;
   }
 
   /**
@@ -293,6 +322,37 @@ export class AnalyticsService {
     startDate.setDate(startDate.getDate() - validDays + 1);
     startDate.setHours(0, 0, 0, 0);
     return startDate;
+  }
+
+  /**
+   * 将 ISO 日期字符串（YYYY-MM-DD）解析为本地时间 Date
+   */
+  private parseLocalDate(dateStr: string, startOfDay: boolean): Date {
+    const [year, month, day] = dateStr.split('-').map((part) => Number(part));
+    const date = new Date(year, month - 1, day);
+    if (startOfDay) {
+      date.setHours(0, 0, 0, 0);
+    } else {
+      date.setHours(23, 59, 59, 999);
+    }
+    return date;
+  }
+
+  /**
+   * 计算两个日期之间（含起止日）的天数
+   */
+  private diffDaysInclusive(startDate: Date, endDate: Date): number {
+    const start = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+    );
+    const end = new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate(),
+    );
+    return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   }
 
   /**
