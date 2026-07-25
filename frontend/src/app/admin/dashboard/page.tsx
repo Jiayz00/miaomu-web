@@ -154,8 +154,48 @@ function ChartCard({
   );
 }
 
+type RangeType = 'preset' | 'custom';
+
+interface DateRangeState {
+  type: RangeType;
+  days: number;
+  startDate: string;
+  endDate: string;
+}
+
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getDefaultDateRange(): DateRangeState {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 6);
+  return {
+    type: 'preset',
+    days: 7,
+    startDate: formatLocalDate(start),
+    endDate: formatLocalDate(end),
+  };
+}
+
+function buildRangeQuery(range: DateRangeState): string {
+  const params = new URLSearchParams();
+  if (range.type === 'custom') {
+    params.set('startDate', range.startDate);
+    params.set('endDate', range.endDate);
+  } else {
+    params.set('days', String(range.days));
+  }
+  return `?${params.toString()}`;
+}
+
 export default function DashboardPage() {
-  const [days, setDays] = useState(7);
+  const [range, setRange] = useState<DateRangeState>(getDefaultDateRange);
+  const querySuffix = buildRangeQuery(range);
 
   // 看板概览
   const { data: stats } = useQuery<DashboardStats>({
@@ -170,10 +210,10 @@ export default function DashboardPage() {
 
   // 浏览量趋势（后端返回 { days, list }）
   const { data: viewsTrend } = useQuery<{ days: number; list: ChartPoint[] }>({
-    queryKey: ['admin-views', days],
+    queryKey: ['admin-views', range],
     queryFn: async () => {
       const res = await api.get<{ data: { days: number; list: ChartPoint[] } }>(
-        `/admin/analytics/views?days=${days}`
+        `/admin/analytics/views${querySuffix}`
       );
       return res.data;
     },
@@ -181,10 +221,10 @@ export default function DashboardPage() {
 
   // 收藏量趋势
   const { data: favoritesTrend } = useQuery<{ days: number; list: ChartPoint[] }>({
-    queryKey: ['admin-favorites-trend', days],
+    queryKey: ['admin-favorites-trend', range],
     queryFn: async () => {
       const res = await api.get<{ data: { days: number; list: ChartPoint[] } }>(
-        `/admin/analytics/favorites?days=${days}`
+        `/admin/analytics/favorites${querySuffix}`
       );
       return res.data;
     },
@@ -192,10 +232,10 @@ export default function DashboardPage() {
 
   // 用户增长趋势
   const { data: userGrowth } = useQuery<UserGrowthTrend>({
-    queryKey: ['admin-user-growth', days],
+    queryKey: ['admin-user-growth', range],
     queryFn: async () => {
       const res = await api.get<{ data: UserGrowthTrend }>(
-        `/admin/analytics/user-growth?days=${days}`
+        `/admin/analytics/user-growth${querySuffix}`
       );
       return res.data;
     },
@@ -203,10 +243,10 @@ export default function DashboardPage() {
 
   // 询价统计（含转化漏斗与趋势）
   const { data: inquiryStats } = useQuery<InquiryStats>({
-    queryKey: ['admin-inquiry-stats', days],
+    queryKey: ['admin-inquiry-stats', range],
     queryFn: async () => {
       const res = await api.get<{ data: InquiryStats }>(
-        `/admin/analytics/inquiry-stats?days=${days}`
+        `/admin/analytics/inquiry-stats${querySuffix}`
       );
       return res.data;
     },
@@ -260,23 +300,69 @@ export default function DashboardPage() {
     },
   });
 
-  const daysToggle = (
-    <div className="flex gap-1 border border-text-muted/20">
-      {[7, 30, 90].map((d) => (
+  const timeRangePicker = (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex gap-1 border border-text-muted/20">
+        {[7, 30, 90].map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() =>
+              setRange((prev) => ({
+                ...prev,
+                type: 'preset',
+                days: d,
+              }))
+            }
+            className={cn(
+              'px-3 py-1 text-xs transition-colors',
+              range.type === 'preset' && range.days === d
+                ? 'bg-primary text-background'
+                : 'text-text-light hover:text-primary'
+            )}
+          >
+            {d} 天
+          </button>
+        ))}
         <button
-          key={d}
           type="button"
-          onClick={() => setDays(d)}
+          onClick={() => setRange((prev) => ({ ...prev, type: 'custom' }))}
           className={cn(
             'px-3 py-1 text-xs transition-colors',
-            days === d
+            range.type === 'custom'
               ? 'bg-primary text-background'
               : 'text-text-light hover:text-primary'
           )}
         >
-          {d} 天
+          自定义
         </button>
-      ))}
+      </div>
+
+      {range.type === 'custom' && (
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={range.startDate}
+            max={range.endDate}
+            onChange={(e) =>
+              setRange((prev) => ({ ...prev, startDate: e.target.value }))
+            }
+            className="border border-text-muted/20 bg-surface px-2 py-1 text-xs text-primary outline-none focus:border-accent"
+            aria-label="开始日期"
+          />
+          <span className="text-xs text-text-muted">至</span>
+          <input
+            type="date"
+            value={range.endDate}
+            min={range.startDate}
+            onChange={(e) =>
+              setRange((prev) => ({ ...prev, endDate: e.target.value }))
+            }
+            className="border border-text-muted/20 bg-surface px-2 py-1 text-xs text-primary outline-none focus:border-accent"
+            aria-label="结束日期"
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -395,22 +481,22 @@ export default function DashboardPage() {
 
       {/* 趋势图：浏览量 + 收藏量 */}
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <ChartCard title="浏览量趋势" action={daysToggle}>
+        <ChartCard title="浏览量趋势" action={timeRangePicker}>
           <ViewsTrendChart data={viewsList} />
         </ChartCard>
 
-        <ChartCard title="收藏量趋势" action={daysToggle}>
+        <ChartCard title="收藏量趋势" action={timeRangePicker}>
           <FavoritesTrendChart data={favoritesList} />
         </ChartCard>
       </div>
 
       {/* 用户增长 + 询价趋势 */}
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <ChartCard title="用户增长趋势" action={daysToggle}>
+        <ChartCard title="用户增长趋势" action={timeRangePicker}>
           <UserGrowthChart data={userGrowthList} />
         </ChartCard>
 
-        <ChartCard title="询价量趋势" action={daysToggle}>
+        <ChartCard title="询价量趋势" action={timeRangePicker}>
           <InquiryTrendChart data={inquiryTrendList} />
         </ChartCard>
       </div>
@@ -429,8 +515,7 @@ export default function DashboardPage() {
       {/* 询价转化漏斗 + 库存价值 */}
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* 询价漏斗 */}
-        <div className="border border-text-muted/15 bg-surface p-6">
-          <h3 className="mb-6 font-serif text-xl text-primary">询价转化漏斗</h3>
+        <ChartCard title="询价转化漏斗">
           {inquiryStats ? (
             <div className="space-y-4">
               {inquiryFunnel.map((stage, i) => {
@@ -489,11 +574,10 @@ export default function DashboardPage() {
           ) : (
             <ChartSkeletonLazy />
           )}
-        </div>
+        </ChartCard>
 
         {/* 库存价值概览 */}
-        <div className="border border-text-muted/15 bg-surface p-6">
-          <h3 className="mb-6 font-serif text-xl text-primary">库存价值概览</h3>
+        <ChartCard title="库存价值概览">
           {inventory ? (
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
@@ -558,7 +642,7 @@ export default function DashboardPage() {
           ) : (
             <ChartSkeletonLazy />
           )}
-        </div>
+        </ChartCard>
       </div>
 
       {/* 最新询价 */}

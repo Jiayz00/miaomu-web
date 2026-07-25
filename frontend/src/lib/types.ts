@@ -46,6 +46,9 @@ export interface User {
   role: 'ADMIN' | 'USER';
   avatar: string | null;
   phone?: string | null;
+  lastLoginAt?: string | null;
+  lastLoginIp?: string | null;
+  lastActiveAt?: string | null;
 }
 
 export interface ChatRoom {
@@ -55,6 +58,7 @@ export interface ChatRoom {
   status: number;
   createdAt: string;
   bonsai?: Bonsai;
+  user?: User;
   messages?: ChatMessage[];
 }
 
@@ -187,7 +191,11 @@ export type HomeSectionType =
   | 'story'
   | 'cta'
   | 'contact'
-  | 'stats';
+  | 'stats'
+  | 'carousel'
+  | 'text-image'
+  | 'product-list'
+  | 'text';
 
 // 区块专属配置（按 type 不同字段不同，统一用宽松索引签名）
 export interface SectionConfig {
@@ -213,6 +221,41 @@ export interface SiteLayout {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// 轮播图单条配置
+export interface CarouselSlide {
+  image: string;
+  title?: string;
+  subtitle?: string;
+  link?: string;
+}
+
+// 图文区块配置
+export interface TextImageConfig {
+  image?: string;
+  body?: string;
+  buttonText?: string;
+  buttonLink?: string;
+  imagePosition?: 'left' | 'right';
+}
+
+// 产品列表来源
+export type ProductListSource = 'category' | 'featured' | 'latest' | 'hot';
+
+// 产品列表区块配置
+export interface ProductListConfig {
+  source: ProductListSource;
+  categoryId?: number;
+  limit: number;
+  eyebrow?: string;
+  ctaText?: string;
+  ctaLink?: string;
+}
+
+// 纯文本 / HTML 区块配置
+export interface TextBlockConfig {
+  content?: string;
 }
 
 // ============ 分类页布局配置 ============

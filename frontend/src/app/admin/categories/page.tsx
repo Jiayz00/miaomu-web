@@ -15,6 +15,7 @@ import {
   RefreshCw,
   List as ListIcon,
   LayoutTemplate,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { cn, resolveImageUrl } from '@/lib/utils';
@@ -283,13 +284,19 @@ export default function AdminCategoriesPage() {
               categories.map((cat) => (
                 <tr key={cat.id} className="text-sm transition-colors hover:bg-background/50">
                   <td className="px-4 py-3">
-                    <div className="h-12 w-16 overflow-hidden bg-primary-dark/10">
-                      {cat.coverImage && (
+                    <div className="flex h-12 w-16 items-center justify-center overflow-hidden bg-primary-dark/10">
+                      {cat.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={resolveImageUrl(cat.coverImage)}
                           alt={cat.name}
                           className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon
+                          className="h-5 w-5 text-text-muted/50"
+                          strokeWidth={1.5}
+                          aria-hidden="true"
                         />
                       )}
                     </div>
@@ -416,13 +423,19 @@ export default function AdminCategoriesPage() {
               <div>
                 <span className="label-luxury">封面图片</span>
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-28 overflow-hidden border border-text-muted/20 bg-primary-dark/10">
-                    {form.coverImage && (
+                  <div className="flex h-20 w-28 items-center justify-center overflow-hidden border border-text-muted/20 bg-primary-dark/10">
+                    {form.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={resolveImageUrl(form.coverImage)}
                         alt="封面预览"
                         className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon
+                        className="h-6 w-6 text-text-muted/50"
+                        strokeWidth={1.5}
+                        aria-hidden="true"
                       />
                     )}
                   </div>

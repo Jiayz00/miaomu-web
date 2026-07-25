@@ -2,34 +2,85 @@
 //
 // 优化：
 // 1. 移动端视图切换（与用户端聊天页一致）
-// 2. 搜索支持盆景名称、用户名、会话 ID
-// 3. 显示用户头像与未处理标记
+// 2. 服务端搜索支持盆景名称、用户名、消息关键字、时间区间
+// 3. 会话列表使用真实用户名替代 `用户 #N`
+// 4. 筛选/搜索面板支持收起/展开，响应式布局
 
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquare, Search, ArrowLeft, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  MessageSquare,
+  Search,
+  ArrowLeft,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  X,
+} from 'lucide-react';
 import { ChatWidget, ChatRoomItem } from '@/components/ChatWidget';
 import { useAuthStore } from '@/stores/auth-store';
 import { InlineLoading } from '@/components/Loading';
 import { api, ApiError } from '@/lib/api';
-import { cn, getMainImage, formatDateTime } from '@/lib/utils';
+import { cn, getMainImage, formatDateTime, toQueryString } from '@/lib/utils';
 import type { ChatRoom } from '@/lib/types';
+
+interface RoomFilters {
+  bonsaiName: string;
+  username: string;
+  keyword: string;
+  startDate: string;
+  endDate: string;
+}
+
+const EMPTY_FILTERS: RoomFilters = {
+  bonsaiName: '',
+  username: '',
+  keyword: '',
+  startDate: '',
+  endDate: '',
+};
+
+function isFiltersEmpty(filters: RoomFilters): boolean {
+  return Object.values(filters).every((v) => !v);
+}
 
 export default function AdminChatPage() {
   const adminId = useAuthStore((s) => s.user?.id);
   const [activeRoomId, setActiveRoomId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
   // 移动端视图切换
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   // 待处理筛选
   const [filterPending, setFilterPending] = useState(false);
 
-  // 管理员会话列表
-  const { data: rooms, isLoading, isError, error, refetch, isFetching } = useQuery<ChatRoom[]>({
-    queryKey: ['admin-chat-rooms'],
+  // 筛选/搜索状态
+  const [filters, setFilters] = useState<RoomFilters>(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<RoomFilters>(EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const hasFilters = !isFiltersEmpty(appliedFilters);
+
+  // 管理员会话列表（无筛选时走列表接口，有筛选时走搜索接口）
+  const {
+    data: rooms,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<ChatRoom[]>({
+    queryKey: ['admin-chat-rooms', hasFilters ? appliedFilters : 'all'],
     queryFn: async () => {
+      if (hasFilters) {
+        const qs = toQueryString(appliedFilters as unknown as Record<string, unknown>);
+        const res = await api.get<{ data: ChatRoom[] }>(`/admin/chat/search${qs}`);
+        return res.data;
+      }
       const res = await api.get<{ data: ChatRoom[] }>('/admin/chat/rooms');
       return res.data;
     },
@@ -42,22 +93,6 @@ export default function AdminChatPage() {
     }
   }, [rooms, activeRoomId]);
 
-  // 多字段搜索 + 待处理筛选
-  const filteredRooms = (rooms || []).filter((room) => {
-    // 待处理筛选
-    if (filterPending && room.status !== 0) return false;
-
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      room.bonsai?.name?.toLowerCase().includes(q) ||
-      `会话 #${room.id}`.toLowerCase().includes(q) ||
-      String(room.id).includes(q) ||
-      `用户 #${room.userId}`.toLowerCase().includes(q) ||
-      String(room.userId).includes(q)
-    );
-  });
-
   const activeRoom = rooms?.find((r) => r.id === activeRoomId);
 
   const handleSelectRoom = (roomId: number) => {
@@ -69,11 +104,29 @@ export default function AdminChatPage() {
     setMobileView('list');
   };
 
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+    setActiveRoomId(null);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setActiveRoomId(null);
+  };
+
+  // 待处理筛选 + 搜索结果后的列表
+  const filteredRooms = (rooms || []).filter((room) => {
+    if (filterPending && room.status !== 0) return false;
+    return true;
+  });
+
   const pendingCount = (rooms || []).filter((r) => r.status === 0).length;
+  const activeFilterCount = Object.values(appliedFilters).filter(Boolean).length;
 
   return (
     <div>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl text-primary">询价管理</h1>
           <p className="mt-1 text-sm text-text-muted">
@@ -85,22 +138,189 @@ export default function AdminChatPage() {
             )}
           </p>
         </div>
-        {/* 待处理筛选开关 */}
-        <button
-          type="button"
-          onClick={() => setFilterPending((v) => !v)}
-          aria-pressed={filterPending}
-          className={cn(
-            'flex items-center gap-2 border px-4 py-2 text-xs uppercase tracking-[0.15em] transition-colors',
-            filterPending
-              ? 'border-accent bg-accent text-primary-dark'
-              : 'border-text-muted/30 text-text-light hover:border-accent hover:text-accent'
-          )}
-        >
-          <Clock className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
-          {filterPending ? '仅看待处理' : '显示全部'}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 筛选/搜索展开按钮 */}
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            className={cn(
+              'flex items-center gap-2 border px-4 py-2 text-xs uppercase tracking-[0.15em] transition-colors',
+              showFilters || activeFilterCount > 0
+                ? 'border-accent bg-accent/5 text-primary'
+                : 'border-text-muted/30 text-text-light hover:border-accent hover:text-accent'
+            )}
+          >
+            <Filter className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            筛选与搜索
+            {activeFilterCount > 0 && (
+              <span className="ml-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-medium text-primary-dark">
+                {activeFilterCount}
+              </span>
+            )}
+            {showFilters ? (
+              <ChevronUp className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            )}
+          </button>
+          {/* 待处理筛选开关 */}
+          <button
+            type="button"
+            onClick={() => setFilterPending((v) => !v)}
+            aria-pressed={filterPending}
+            className={cn(
+              'flex items-center gap-2 border px-4 py-2 text-xs uppercase tracking-[0.15em] transition-colors',
+              filterPending
+                ? 'border-accent bg-accent text-primary-dark'
+                : 'border-text-muted/30 text-text-light hover:border-accent hover:text-accent'
+            )}
+          >
+            <Clock className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            {filterPending ? '仅看待处理' : '显示全部'}
+          </button>
+        </div>
       </div>
+
+      {/* 筛选/搜索面板 */}
+      {showFilters && (
+        <div className="mb-4 border border-text-muted/15 bg-surface p-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 盆景名称 */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="admin-filter-bonsai-name"
+                className="text-xs uppercase tracking-wider text-text-muted"
+              >
+                盆景名称
+              </label>
+              <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <input
+                  id="admin-filter-bonsai-name"
+                  type="text"
+                  value={filters.bonsaiName}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, bonsaiName: e.target.value }))
+                  }
+                  placeholder="按盆景名称筛选…"
+                  className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 用户名 */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="admin-filter-username"
+                className="text-xs uppercase tracking-wider text-text-muted"
+              >
+                用户名
+              </label>
+              <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <input
+                  id="admin-filter-username"
+                  type="text"
+                  value={filters.username}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, username: e.target.value }))
+                  }
+                  placeholder="按会话用户筛选…"
+                  className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 开始日期 */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="admin-filter-start-date"
+                className="text-xs uppercase tracking-wider text-text-muted"
+              >
+                开始日期
+              </label>
+              <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                <Calendar className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <input
+                  id="admin-filter-start-date"
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, startDate: e.target.value }))
+                  }
+                  className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 结束日期 */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="admin-filter-end-date"
+                className="text-xs uppercase tracking-wider text-text-muted"
+              >
+                结束日期
+              </label>
+              <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                <Calendar className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <input
+                  id="admin-filter-end-date"
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, endDate: e.target.value }))
+                  }
+                  className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 消息关键字 */}
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
+              <label
+                htmlFor="admin-filter-keyword"
+                className="text-xs uppercase tracking-wider text-text-muted"
+              >
+                消息内容
+              </label>
+              <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
+                <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <input
+                  id="admin-filter-keyword"
+                  type="text"
+                  value={filters.keyword}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, keyword: e.target.value }))
+                  }
+                  placeholder="搜索消息内容关键字…"
+                  className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleApplyFilters}
+              className="flex items-center gap-2 bg-primary px-5 py-2 text-xs uppercase tracking-[0.15em] text-background transition-colors hover:bg-primary-light"
+            >
+              <Search className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              搜索
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="flex items-center gap-2 border border-text-muted/30 px-5 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              重置
+            </button>
+            <p className="text-xs text-text-muted">至少填写一项即可搜索</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex h-[72vh] overflow-hidden border border-text-muted/15 bg-surface">
         {/* 左：会话列表 */}
@@ -110,23 +330,6 @@ export default function AdminChatPage() {
             mobileView === 'chat' ? 'hidden md:flex' : 'flex'
           )}
         >
-          {/* 搜索 */}
-          <div className="border-b border-text-muted/10 p-3">
-            <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
-              <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-              <input
-                id="admin-chat-search"
-                name="admin-chat-search"
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="搜索盆景、用户或会话 ID…"
-                aria-label="搜索询价会话"
-                className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
-              />
-            </div>
-          </div>
-
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
               <InlineLoading />
@@ -151,7 +354,7 @@ export default function AdminChatPage() {
                 <div key={room.id} className="relative">
                   <ChatRoomItem
                     name={room.bonsai?.name || `会话 #${room.id}`}
-                    subtitle={`用户 #${room.userId}${room.bonsai ? ` · ${room.bonsai.name}` : ''}`}
+                    subtitle={`${room.user?.username || `用户 #${room.userId}`}${room.bonsai ? ` · ${room.bonsai.name}` : ''}`}
                     time={room.createdAt}
                     active={room.id === activeRoomId}
                     onClick={() => handleSelectRoom(room.id)}
@@ -168,7 +371,7 @@ export default function AdminChatPage() {
               <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
                 <MessageSquare className="h-8 w-8 text-text-muted/40" strokeWidth={1} aria-hidden="true" />
                 <p className="text-sm text-text-muted">
-                  {search || filterPending ? '未找到匹配的会话' : '暂无询价会话'}
+                  {hasFilters || filterPending ? '未找到匹配的会话' : '暂无询价会话'}
                 </p>
               </div>
             )}
@@ -211,7 +414,7 @@ export default function AdminChatPage() {
                     {activeRoom.bonsai?.name || `会话 #${activeRoom.id}`}
                   </p>
                   <p className="text-xs text-text-muted">
-                    用户 #{activeRoom.userId} · {formatDateTime(activeRoom.createdAt)}
+                    {activeRoom.user?.username || `用户 #${activeRoom.userId}`} · {formatDateTime(activeRoom.createdAt)}
                   </p>
                 </div>
                 {activeRoom.status === 0 && (

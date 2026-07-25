@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
-import { QueryDaysDto } from './dto/query-days.dto';
+import { AnalyticsQueryDto } from './dto/query-days.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -26,15 +26,15 @@ export class AnalyticsController {
   }
 
   @Get('views')
-  @ApiOperation({ summary: '浏览量趋势（支持 7/30 天）' })
-  getViews(@Query() query: QueryDaysDto) {
-    return this.analyticsService.getViewsTrend(query.days ?? 7);
+  @ApiOperation({ summary: '浏览量趋势（支持 7/30/90 天或自定义起止日期）' })
+  getViews(@Query() query: AnalyticsQueryDto) {
+    return this.analyticsService.getViewsTrend(query);
   }
 
   @Get('favorites')
-  @ApiOperation({ summary: '收藏量趋势' })
-  getFavorites(@Query() query: QueryDaysDto) {
-    return this.analyticsService.getFavoritesTrend(query.days ?? 7);
+  @ApiOperation({ summary: '收藏量趋势（支持 7/30/90 天或自定义起止日期）' })
+  getFavorites(@Query() query: AnalyticsQueryDto) {
+    return this.analyticsService.getFavoritesTrend(query);
   }
 
   @Get('top-bonsais')
@@ -56,14 +56,14 @@ export class AnalyticsController {
   }
 
   @Get('inquiry-stats')
-  @ApiOperation({ summary: '询价统计与转化漏斗（支持 7/30 天）' })
-  getInquiryStats(@Query() query: QueryDaysDto) {
-    return this.analyticsService.getInquiryStats(query.days ?? 7);
+  @ApiOperation({ summary: '询价统计与转化漏斗（支持 7/30/90 天或自定义起止日期）' })
+  getInquiryStats(@Query() query: AnalyticsQueryDto) {
+    return this.analyticsService.getInquiryStats(query);
   }
 
   @Get('user-growth')
-  @ApiOperation({ summary: '用户增长趋势（支持 7/30 天）' })
-  getUserGrowth(@Query() query: QueryDaysDto) {
-    return this.analyticsService.getUserGrowthTrend(query.days ?? 7);
+  @ApiOperation({ summary: '用户增长趋势（支持 7/30/90 天或自定义起止日期）' })
+  getUserGrowth(@Query() query: AnalyticsQueryDto) {
+    return this.analyticsService.getUserGrowthTrend(query);
   }
 }

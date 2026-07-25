@@ -4,6 +4,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsObject,
   IsOptional,
@@ -28,7 +29,11 @@ export type HomeSectionType =
   | 'story'
   | 'cta'
   | 'contact'
-  | 'stats';
+  | 'stats'
+  | 'carousel'
+  | 'text-image'
+  | 'product-list'
+  | 'text';
 
 /**
  * 单个区块 DTO
@@ -52,9 +57,28 @@ export class SiteSectionDto {
       'cta',
       'contact',
       'stats',
+      'carousel',
+      'text-image',
+      'product-list',
+      'text',
     ],
   })
   @IsString()
+  @IsIn([
+    'hero',
+    'featured',
+    'categories',
+    'bonsai-grid',
+    'showcase',
+    'story',
+    'cta',
+    'contact',
+    'stats',
+    'carousel',
+    'text-image',
+    'product-list',
+    'text',
+  ])
   type!: HomeSectionType;
 
   @ApiProperty({ description: '区块标题（可空）', example: '匠心之选', required: false })

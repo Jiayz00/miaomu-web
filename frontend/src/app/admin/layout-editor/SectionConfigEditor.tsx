@@ -3,9 +3,19 @@
 
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-import type { HomeSection } from '@/lib/types';
+import { useState, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Plus, Trash2, Upload, X, Loader2 } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
+import type {
+  HomeSection,
+  Category,
+  CarouselSlide,
+  TextImageConfig,
+  ProductListConfig,
+  ProductListSource,
+  TextBlockConfig,
+} from '@/lib/types';
 
 interface SectionConfigEditorProps {
   section: HomeSection;
@@ -114,6 +124,24 @@ export function SectionConfigEditor({
         )}
         {type === 'stats' && (
           <StatsConfig section={section} onUpdateConfig={onUpdateConfig} />
+        )}
+        {type === 'carousel' && (
+          <CarouselConfig section={section} onUpdateConfig={onUpdateConfig} />
+        )}
+        {type === 'text-image' && (
+          <TextImageConfigEditor
+            section={section}
+            onUpdateConfig={onUpdateConfig}
+          />
+        )}
+        {type === 'product-list' && (
+          <ProductListConfigEditor
+            section={section}
+            onUpdateConfig={onUpdateConfig}
+          />
+        )}
+        {type === 'text' && (
+          <TextConfigEditor section={section} onUpdateConfig={onUpdateConfig} />
         )}
       </div>
     </div>
@@ -704,5 +732,444 @@ function StatsConfig({ section, onUpdateConfig }: ConfigEditorProps) {
         </div>
       </div>
     </>
+  );
+}
+
+// ====== 图片上传字段（复用 /admin/upload 单图接口）======
+
+interface ImageUrlFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  placeholder?: string;
+}
+
+function ImageUrlField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder = 'https://... 或 /uploads/xxx.jpg',
+}: ImageUrlFieldProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const MAX_IMG_SIZE = 30 * 1024 * 1024;
+      const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!ALLOWED_IMG_TYPES.includes(file.type)) {
+        setError('仅支持 JPG/PNG/WebP 图片');
+        return;
+      }
+      if (file.size > MAX_IMG_SIZE) {
+        setError('图片大小超过 30MB 限制');
+        return;
+      }
+
+      setUploading(true);
+      setError('');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post<{
+          data: { url: string; filename: string };
+        }>('/admin/upload', formData);
+        const url = res.data?.url;
+        if (!url) {
+          throw new Error('上传成功但未返回图片地址');
+        }
+        onChange(url);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : '图片上传失败');
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    },
+    [onChange],
+  );
+
+  return (
+    <div>
+      <label htmlFor={id} className={labelClass}>
+        {label}
+      </label>
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-2">
+          <input
+            id={id}
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={inputClass}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-1.5 border border-text-muted/30 px-3 text-xs uppercase tracking-wider text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            {uploading ? '上传中' : '上传'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+            aria-hidden="true"
+          />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        {value && (
+          <div className="relative inline-block h-20 w-20 overflow-hidden border border-text-muted/20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={value}
+              alt="预览"
+              className="h-full w-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              aria-label="移除图片"
+              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center bg-primary-dark/70 text-background hover:bg-red-500"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ====== 轮播图配置 ======
+
+function CarouselConfig({ section, onUpdateConfig }: ConfigEditorProps) {
+  const cfg = section.config;
+  const slides = (cfg.slides as CarouselSlide[]) || [];
+
+  const updateSlide = (idx: number, patch: Partial<CarouselSlide>) => {
+    const next = slides.map((s, i) => (i === idx ? { ...s, ...patch } : s));
+    onUpdateConfig({ slides: next });
+  };
+
+  const addSlide = () => {
+    onUpdateConfig({
+      slides: [
+        ...slides,
+        {
+          image: '',
+          title: '',
+          subtitle: '',
+          link: '',
+        },
+      ],
+    });
+  };
+
+  const removeSlide = (idx: number) => {
+    onUpdateConfig({ slides: slides.filter((_, i) => i !== idx) });
+  };
+
+  const moveSlide = (idx: number, direction: 'up' | 'down') => {
+    const target = direction === 'up' ? idx - 1 : idx + 1;
+    if (target < 0 || target >= slides.length) return;
+    const next = [...slides];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onUpdateConfig({ slides: next });
+  };
+
+  return (
+    <>
+      <TextField
+        id="carousel-eyebrow"
+        label="眉标"
+        value={(cfg.eyebrow as string) || ''}
+        onChange={(v) => onUpdateConfig({ eyebrow: v })}
+        placeholder="精彩推荐"
+      />
+      <div>
+        <label className={labelClass}>轮播图片</label>
+        <div className="space-y-4">
+          {slides.map((slide, idx) => (
+            <div
+              key={idx}
+              className="border border-text-muted/15 bg-background/50 p-4"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs text-text-muted">第 {idx + 1} 张</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveSlide(idx, 'up')}
+                    disabled={idx === 0}
+                    aria-label="上移"
+                    className="p-1 text-text-muted hover:text-primary disabled:opacity-30"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSlide(idx, 'down')}
+                    disabled={idx === slides.length - 1}
+                    aria-label="下移"
+                    className="p-1 text-text-muted hover:text-primary disabled:opacity-30"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeSlide(idx)}
+                    aria-label={`删除第 ${idx + 1} 张`}
+                    className="p-1 text-text-muted hover:text-red-500"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <ImageUrlField
+                  id={`carousel-slide-image-${idx}`}
+                  label="图片"
+                  value={slide.image || ''}
+                  onChange={(v) => updateSlide(idx, { image: v })}
+                />
+                <TextField
+                  id={`carousel-slide-title-${idx}`}
+                  label="标题"
+                  value={slide.title || ''}
+                  onChange={(v) => updateSlide(idx, { title: v })}
+                  placeholder="轮播标题"
+                />
+                <TextField
+                  id={`carousel-slide-subtitle-${idx}`}
+                  label="副标题"
+                  value={slide.subtitle || ''}
+                  onChange={(v) => updateSlide(idx, { subtitle: v })}
+                  placeholder="轮播副标题"
+                />
+                <TextField
+                  id={`carousel-slide-link-${idx}`}
+                  label="链接"
+                  value={slide.link || ''}
+                  onChange={(v) => updateSlide(idx, { link: v })}
+                  placeholder="/bonsais 或 https://..."
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addSlide}
+          className="mt-3 flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-accent-light"
+        >
+          <Plus className="h-3 w-3" />
+          添加轮播图
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ====== 图文区块配置 ======
+
+function TextImageConfigEditor({ section, onUpdateConfig }: ConfigEditorProps) {
+  const cfg = section.config as unknown as TextImageConfig;
+
+  return (
+    <>
+      <ImageUrlField
+        id="text-image-image"
+        label="配图"
+        value={cfg.image || ''}
+        onChange={(v) => onUpdateConfig({ image: v })}
+      />
+      <div>
+        <label htmlFor="text-image-body" className={labelClass}>
+          正文内容
+        </label>
+        <textarea
+          id="text-image-body"
+          value={cfg.body || ''}
+          onChange={(e) => onUpdateConfig({ body: e.target.value })}
+          rows={5}
+          placeholder="输入正文，支持普通文字或 HTML"
+          className={inputClass}
+        />
+        <p className="mt-1 text-xs text-text-muted">
+          支持输入普通文字或简单 HTML 标签
+        </p>
+      </div>
+      <TextField
+        id="text-image-button-text"
+        label="按钮文字"
+        value={cfg.buttonText || ''}
+        onChange={(v) => onUpdateConfig({ buttonText: v })}
+        placeholder="了解更多"
+      />
+      <TextField
+        id="text-image-button-link"
+        label="按钮链接"
+        value={cfg.buttonLink || ''}
+        onChange={(v) => onUpdateConfig({ buttonLink: v })}
+        placeholder="/bonsais"
+      />
+      <div>
+        <label htmlFor="text-image-position" className={labelClass}>
+          图片位置
+        </label>
+        <select
+          id="text-image-position"
+          value={cfg.imagePosition === 'right' ? 'right' : 'left'}
+          onChange={(e) =>
+            onUpdateConfig({ imagePosition: e.target.value as 'left' | 'right' })
+          }
+          className={inputClass}
+        >
+          <option value="left">左侧</option>
+          <option value="right">右侧</option>
+        </select>
+      </div>
+    </>
+  );
+}
+
+// ====== 产品列表配置 ======
+
+function ProductListConfigEditor({ section, onUpdateConfig }: ConfigEditorProps) {
+  const cfg = section.config as unknown as ProductListConfig;
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await api.get<{ data: Category[] }>('/categories');
+      return res.data;
+    },
+  });
+
+  const sourceOptions: Array<{ value: ProductListSource; label: string }> = [
+    { value: 'latest', label: '最新上架' },
+    { value: 'hot', label: '热门优先' },
+    { value: 'featured', label: '精选盆景' },
+    { value: 'category', label: '指定分类' },
+  ];
+
+  return (
+    <>
+      <TextField
+        id="product-list-eyebrow"
+        label="眉标"
+        value={cfg.eyebrow || ''}
+        onChange={(v) => onUpdateConfig({ eyebrow: v })}
+        placeholder="盆景收藏"
+      />
+      <div>
+        <label htmlFor="product-list-source" className={labelClass}>
+          数据来源
+        </label>
+        <select
+          id="product-list-source"
+          value={cfg.source || 'latest'}
+          onChange={(e) =>
+            onUpdateConfig({ source: e.target.value as ProductListSource })
+          }
+          className={inputClass}
+        >
+          {sourceOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {cfg.source === 'category' && (
+        <div>
+          <label htmlFor="product-list-category" className={labelClass}>
+            选择分类
+          </label>
+          <select
+            id="product-list-category"
+            value={cfg.categoryId || ''}
+            onChange={(e) =>
+              onUpdateConfig({
+                categoryId: e.target.value ? Number(e.target.value) : undefined,
+              })
+            }
+            className={inputClass}
+          >
+            <option value="">请选择分类</option>
+            {categories?.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <NumberField
+        id="product-list-limit"
+        label="展示数量"
+        value={cfg.limit || 8}
+        onChange={(v) => onUpdateConfig({ limit: v })}
+        min={1}
+        max={24}
+      />
+      <TextField
+        id="product-list-cta-text"
+        label="底部链接文字"
+        value={cfg.ctaText || ''}
+        onChange={(v) => onUpdateConfig({ ctaText: v })}
+        placeholder="浏览全部"
+      />
+      <TextField
+        id="product-list-cta-link"
+        label="底部链接地址"
+        value={cfg.ctaLink || ''}
+        onChange={(v) => onUpdateConfig({ ctaLink: v })}
+        placeholder="/bonsais"
+      />
+    </>
+  );
+}
+
+// ====== 纯文本 / HTML 配置 ======
+
+function TextConfigEditor({ section, onUpdateConfig }: ConfigEditorProps) {
+  const cfg = section.config as unknown as TextBlockConfig;
+
+  return (
+    <div>
+      <label htmlFor="text-content" className={labelClass}>
+        内容
+      </label>
+      <textarea
+        id="text-content"
+        value={cfg.content || ''}
+        onChange={(e) => onUpdateConfig({ content: e.target.value })}
+        rows={10}
+        placeholder="输入自定义文字或 HTML 内容"
+        className={inputClass}
+      />
+      <p className="mt-1 text-xs text-text-muted">
+        支持普通文字与 HTML 标签，可自由排版
+      </p>
+    </div>
   );
 }

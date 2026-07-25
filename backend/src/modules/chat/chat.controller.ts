@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { SearchRoomsDto } from './dto/search-rooms.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { UpdateStatusDto } from '../../common/dto/status.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -42,6 +43,12 @@ export class ChatController {
     return this.chatService.findMyRooms(user.sub);
   }
 
+  @Get('rooms/search')
+  @ApiOperation({ summary: '搜索/筛选我的会话' })
+  searchMyRooms(@CurrentUser() user: JwtPayload, @Query() query: SearchRoomsDto) {
+    return this.chatService.searchMyRooms(user.sub, query);
+  }
+
   @Get('rooms/:id/messages')
   @ApiOperation({ summary: '会话消息（分页）' })
   findMessages(
@@ -68,6 +75,12 @@ export class ChatAdminController {
   @ApiOperation({ summary: '所有会话列表' })
   findAll() {
     return this.chatService.findAdminRooms();
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: '搜索/筛选会话' })
+  searchRooms(@Query() query: SearchRoomsDto) {
+    return this.chatService.searchAdminRooms(query);
   }
 
   @Get('rooms/:id')

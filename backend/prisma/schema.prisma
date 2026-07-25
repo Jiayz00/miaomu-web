@@ -28,6 +28,8 @@ model User {
   failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
   lockedUntil          DateTime? @map("locked_until") // 锁定截止时间，null 表示未锁定
   lastLoginAt          DateTime? @map("last_login_at") // 最后登录时间
+  lastLoginIp          String?   @map("last_login_ip") @db.VarChar(45) // 最后登录 IP
+  lastActiveAt         DateTime? @map("last_active_at") // 最后活动时间
   passwordChangedAt    DateTime  @default(now()) @map("password_changed_at") // 密码修改时间，用于强制旧 token 失效
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
