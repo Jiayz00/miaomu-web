@@ -15,6 +15,65 @@
 | 3 | v1.2.1 GitHub Release 发布 | ✅ | - | - | - | [Release v1.2.1](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.1) 已发布 |
 | 4 | v1.2.2 关键 bug 修复 + E2E 全量回归 | ✅ | 7 | 7 | ✅ | 见下方问题清单与修复记录 |
 | 5 | v1.2.2 GitHub Release 发布 | ✅ | - | - | - | [Release v1.2.2](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.2) 已发布 |
+| Loop 6 | 平台体验优化（聊天 / 用户管理 / 主页布局 / 分类 / 数据看板） | ✅ | 7 | 7 | ✅ | 见下方问题清单与修复记录 |
+| Loop 7 | 分类封面显示优化 + 主页布局编辑器 WordPress 式重制 | ✅ | 2 | 2 | ✅ | 见下方问题清单与修复记录 |
+
+#### Loop 6 - 发现问题
+
+- **[P0]** `frontend/src/hooks/use-socket.ts` + `frontend/src/components/ChatWidget.tsx` + `frontend/src/lib/socket.ts` - **聊天会话连接状态始终显示"连接中"，对应盆景图片未显示，侧边栏显示 `用户#N` 而非真实用户名。** 复现：用户端点击"询价咨询"进入聊天，状态栏显示"连接中…"；会话框顶部苗木图片空白；后台询价管理列表显示 `用户#2` 等占位符。根因：① `useSocket` hook 未同步 `socket.connected` 状态；② 图片 URL 未使用 `resolveImageUrl` / `getMainImage` 解析；③ 侧边栏从 `room.participantId` 生成占位名，未读取 `room.user.username`。修复：① `use-socket.ts` 在 `connect` / `disconnect` / `reconnect` 事件中同步 `isConnected`；② 聊天相关组件统一使用 `getMainImage(bonsai)` 获取主图并处理错误回退；③ 侧边栏与列表项从 `room.user.username` 读取真实用户名。
+- **[P0]** `frontend/src/components/ChatWidget.tsx` + `frontend/src/lib/socket.ts` - **聊天历史消息报错 `TypeError: b is not iterable`，WebSocket 无法收发实时消息。** 复现：打开聊天窗口后历史消息空白，控制台报迭代错误；发送消息对方收不到。根因：① `GET /api/v1/chat/rooms/:id/messages` 已改为分页结构 `{ list: [...] }`，前端仍按数组处理；② socket.io 客户端未连接后端 `/chat` namespace。修复：① `ChatWidget` 使用 `PaginatedResponse` 取 `res.data?.list ?? []`；② `socket.ts` 中 socket URL 强制追加 `/chat` namespace，并配置 `transports: ['websocket', 'polling']` 兜底。
+- **[P1]** `backend/src/modules/chat/chat.service.ts` + `frontend/src/app/admin/chat/page.tsx` - **聊天管理缺少筛选与内容搜索，无法快速定位会话。** 复现：后台"询价管理"列表长且无搜索，客服难以按盆景名称、用户名、时间或消息内容查找历史对话。修复：后端增加按盆景名称、用户名、时间范围、消息内容等组合筛选接口（字段均非必填）；前端管理页增加可展开/收起的筛选面板与搜索框，响应式布局避免重叠。
+- **[P1]** `backend/prisma/schema.prisma` + `backend/src/modules/users/users.service.ts` + `frontend/src/app/admin/users/page.tsx` - **用户管理权限不足，缺少活动时间 / 登录 IP 记录，无法升降级管理员。** 复现：管理员无法修改其他管理员密码；用户列表不显示最后登录时间与 IP；无法将普通用户提升为管理员或降级。修复：Prisma schema 新增 `lastActiveAt`、`lastLoginIp`、`lastLoginAt` 等字段；后端允许管理员重置任意用户（含管理员）密码、修改角色；前端增加角色切换、密码重置、IP/活动时间展示。
+- **[P1]** `frontend/src/app/admin/dashboard/page.tsx` + `backend/src/modules/analytics/analytics.controller.ts` - **数据看板仅支持固定时间区间，布局不够整齐。** 复现：看板只有 7/30/90 天等固定选项，无法自定义时间段；部分图表排列错落。修复：前端新增"自定义"日期范围选择器（开始/结束日期）；后端 analytics 接口支持 `startDate` / `endDate` 参数；前端重新组织图表卡片网格，使布局更整齐。
+- **[P1]** `frontend/src/app/admin/layout-editor/` + `frontend/src/components/home/` - **主页布局无法自助编辑，界面使用后端术语。** 复现：用户要求像 WordPress 主题一样自定义首页排版，但原界面配置项晦涩、无法上传图片。修复：新增可视化布局编辑器，支持拖拽排序 section、增删区块、上传图片、配置文案；界面文案去后端化，使用"大图区""精选区""故事区"等友好名称；首页 `HomeRenderer` 按保存的配置动态渲染。
+- **[P1]** `backend/src/modules/categories/categories.service.ts` + `frontend/src/app/admin/categories/page.tsx` - **分类封面图片未显示。** 复现：后台分类管理列表封面图空白。根因：数据库 `cover_image` 字段为 NULL，且缺少上传入口。修复：后端分类 CRUD 支持 `coverImage` 字段与上传接口；前端分类管理页支持上传并显示封面图。
+- **[P0]** `frontend/src/hooks/use-favorites.ts` + `backend/src/modules/favorites/favorites.service.ts` - **我的收藏页渲染异常，盆景名称与链接显示 `undefined`。** 复现：用户端"我的收藏"列表中名称、价格、图片链接均为 undefined。根因：后端返回 `{ list: [{ bonsai: Bonsai }] }`，前端 `useFavorites` 直接按 `Bonsai[]` 读取；后端 `select` 未包含 `images`、`slug` 等字段。修复：前端 `useFavorites` 映射为 `res.data.list.map((item) => item.bonsai)`；后端补全 `bonsai` select 字段（含 images、slug、name、price 等）。
+- **[P2]** `frontend/src/app/admin/page.tsx`（缺失） - **访问 `/admin/login` 返回 404，管理端无统一登录入口页。** 复现：浏览器直接访问 `https://miaomu.jiayyy.cn/admin/login` 显示 404。根因：管理端入口实际为 `/admin/dashboard`（未登录时重定向到登录页），未提供 `/admin` 或 `/admin/login` 路径。影响：轻微，可通过 `/admin/dashboard` 进入。处理：记录为已知问题，待后续决定是否增加统一入口重定向。
+
+#### Loop 6 - 修复记录
+
+- ✅ **P0 聊天连接状态 / 图片 / 真实用户名** — 修改 `frontend/src/hooks/use-socket.ts` 同步 `socket.connected`；聊天组件使用 `getMainImage` 解析图片；侧边栏读取 `room.user.username`。已服务器部署并复测。
+- ✅ **P0 聊天历史迭代错误 / WebSocket namespace** — `ChatWidget` 使用 `PaginatedResponse.list`；`socket.ts` URL 追加 `/chat` namespace 并增加 polling fallback。已复测 WebSocket 收发正常。
+- ✅ **P1 聊天筛选与内容搜索** — 后端 Chat 模块增加组合筛选接口；前端 admin chat 页增加可展开筛选面板与搜索框。已按用户名"testuser2026"等条件验证筛选生效。
+- ✅ **P1 用户管理增强** — Prisma schema 新增活动时间/IP 字段；后端支持管理员重置任意用户密码与角色变更；前端用户管理页增加角色切换、密码重置、IP/时间展示。已验证升降级与密码重置。
+- ✅ **P1 数据看板自定义时间区间** — `frontend/src/app/admin/dashboard/page.tsx` 新增自定义日期范围选择器；后端 analytics 接口支持 `startDate` / `endDate`。已验证不同时间段数据正确切换。
+- ✅ **P1 主页布局 WordPress 式自定义** — 新增可视化布局编辑器，支持拖拽排序、图片上传、友好文案；首页动态渲染配置。已验证保存后首页即时生效。
+- ✅ **P1 分类封面图片** — 后端分类支持 `coverImage` 与上传；前端分类管理页显示封面。已验证上传后封面正常显示。
+- ✅ **P0 我的收藏页 undefined** — `use-favorites.ts` 正确映射 `item.bonsai`；后端补全 select 字段。已重新部署并在 PC + 移动端 375x812 复测通过。
+
+#### Loop 6 - 复测结果
+
+- 服务器部署：✅（`/root/jia/penjing`，5 个容器 healthy，mysql/backend/frontend 全部 healthy）
+- 健康检查：✅（`https://miaomu.jiayyy.cn/api/v1/health/live` 返回 200）
+- 浏览器全功能测试：✅（用户端首页 / 列表 / 详情 / 登录 / 收藏 / 询价聊天；管理端 dashboard / bonsais / categories / chat / users / layout-editor / settings；移动端 375x812 核心路径；截图已保留）
+- 控制台无 error：✅（未发现新的 error 级日志）
+- API 无 5xx：✅
+- 磁盘占用：✅（约 27G 可用，已 `docker image prune -f`）
+
+---
+
+#### Loop 7 - 发现问题
+
+> 本 Loop 为 Loop 6 发布后的用户反馈跟进，聚焦「分类封面显示不满意」与「主页布局编辑器不够 WordPress 式」两个体验问题。
+
+- **[P1]** `frontend/src/app/admin/categories/page.tsx` + `frontend/src/components/home/CategoriesSection.tsx` - **后台分类列表封面显示为黑色方块或占位符，用户认为未实现封面功能。** 复现：访问 `/admin/categories`，4 个分类中「松柏类」显示黑色方块，其余显示「未设置封面」占位符；首页 `/` 品类区块部分卡片无图。根因多层级：① 原缩略图尺寸仅 `h-12 w-16`（约 48×64px），暗色小图被拉伸裁剪后几乎全黑；② 无封面分类缺少便捷上传入口，用户无法直观补充；③ `CategoriesSection` 对无封面分类 fallback 到随机远程图，易与真实封面混淆。修复：① 分类列表缩略图改为 `h-16 w-24 object-cover`，保留宽高比并添加 hover 遮罩 +「更换封面」提示；② 无封面单元格直接提供上传按钮，选择文件后即时预览；③ `CategoriesSection` 移除随机图 fallback，无封面时使用品牌渐变背景，避免误判。
+- **[P1]** `frontend/src/app/admin/layout-editor/page.tsx` - **主页布局编辑器缺少 WordPress「自定义主题」式的实时预览与友好操作。** 复现：原编辑器仅提供区块列表 + 表单配置 + 新标签页预览，管理员无法一边调整一边看到效果，区块排序、上传图片、文案配置分散且晦涩。修复：重制为左右分栏：左侧为区块列表（拖拽排序、增删、显隐），右侧为实时预览并支持桌面/平板/移动端宽度切换；顶部提供保存、激活、重置、新窗口预览等快捷操作；所有配置文案去后端化（如「大图区」「精选区」「故事区」）；首页 `page.tsx` 移除 ISR（`revalidate = 3600`）改为 `dynamic: 'force-dynamic'`，保存后刷新立即生效。
+
+#### Loop 7 - 修复记录
+
+- ✅ **P1 分类封面显示优化** — `frontend/src/app/admin/categories/page.tsx` 增大缩略图、加 hover 提示、无封面提供上传入口；`frontend/src/components/home/CategoriesSection.tsx` 移除随机图 fallback，改用品牌渐变。已通过 API 验证完整上传链路（上传 → 更新分类 → 前端展示）。
+- ✅ **P1 主页布局编辑器 WordPress 式重制** — `frontend/src/app/admin/layout-editor/page.tsx` 改为 split-view（左侧区块管理 + 右侧实时预览），支持响应式预览切换与拖拽排序；首页 `page.tsx` 改为 force-dynamic 确保即时生效。已验证保存后首页渲染与预览一致。
+
+#### Loop 7 - 复测结果
+
+- 服务器部署：✅（`/root/jia/penjing`，4 个 penjing 容器 + caddy 均 healthy）
+- 健康检查：✅（`https://miaomu.jiayyy.cn/api/v1/health/live` 返回 200）
+- 浏览器全功能测试：✅（用户端首页品类区块 / 分类列表 / 分类详情；管理端 `/admin/categories` 封面上传与显示、`/admin/layout-editor` 拖拽排序与实时预览；移动端 375x812 核心路径）
+- 控制台无 error：✅
+- API 无 5xx：✅
+- 磁盘占用：✅（约 27G 可用）
+
+---
 
 #### Loop 1 - 发现问题
 

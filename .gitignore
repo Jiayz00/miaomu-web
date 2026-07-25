@@ -78,7 +78,12 @@ Caddyfile.new
 scripts/
 api-test*.txt
 repro*.sh
-repro_*.sh
+remote-deploy.sh
+check-admin.sql.sh
+deploy-step-remote.sh
+login-payload.json
+reset-admin-pw.sh
+test-cover-upload.sh
 tsc_test*.sh
 tsc*test*.json
 tsconfig_test*.json
