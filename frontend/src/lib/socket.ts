@@ -38,12 +38,16 @@ export function getSocket(): Socket | null {
   const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
   if (!token) return null;
 
-  // SOCKET_URL 为空时连接同源（生产环境通过 Nginx 代理 /socket.io/）
+  // SOCKET_URL 为空时连接同源（生产环境通过 Nginx/Caddy 代理 /socket.io/）
   // 显式指定时连接指定地址（开发环境）
-  const socketUrl = SOCKET_URL || undefined;
+  // 关键：后端聊天网关 namespace 为 /chat，客户端必须连接 /chat 命名空间，
+  // 否则消息会发到默认 namespace /，导致后端收不到、前端也收不到回执。
+  const socketUrl = SOCKET_URL ? `${SOCKET_URL.replace(/\/$/, '')}/chat` : '/chat';
   socket = io(socketUrl, {
     auth: { token },
-    transports: ['websocket'],
+    // 优先 websocket，但保留 polling fallback：
+    // 部分反向代理 / CDN 对 websocket upgrade 支持不完整，polling 兜底可避免连接失败
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,

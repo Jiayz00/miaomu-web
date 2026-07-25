@@ -57,6 +57,8 @@ coverage/
 
 # 部署产物
 penjing-deploy.tar.gz
+penjing-deploy.bundle
+deploy-penjing-server.sh
 remote-deploy.sh
 
 # AGENTS.md 含服务器部署信息，禁止提交到 GitHub
@@ -64,6 +66,9 @@ AGENTS.md
 
 # 浏览器测试产物（截图、测试脚本、临时文件）
 .test-browser/
+screenshots/
+ci-logs/
+ci-logs.zip
 
 # 临时 Caddy 配置
 Caddyfile.new

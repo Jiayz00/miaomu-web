@@ -15,7 +15,7 @@ import { Send, MessageCircle, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useSocket } from '@/hooks/use-socket';
 import { cn, formatDateTime, timeAgo } from '@/lib/utils';
-import type { ChatMessage } from '@/lib/types';
+import type { ChatMessage, PaginatedResponse } from '@/lib/types';
 import { InlineLoading } from './Loading';
 
 interface ChatWidgetProps {
@@ -56,14 +56,15 @@ export function ChatWidget({
   pendingRef.current = pending;
 
   // 拉取历史消息
+  // 后端 /chat/rooms/:id/messages 返回分页结构 { list, total, page, pageSize, totalPages }
   const fetchHistory = useCallback(async () => {
     if (!roomId) return;
     setLoading(true);
     try {
-      const res = await api.get<{ data: ChatMessage[] }>(
+      const res = await api.get<{ data: PaginatedResponse<ChatMessage> }>(
         `/chat/rooms/${roomId}/messages`
       );
-      setHistory(res.data);
+      setHistory(res.data?.list ?? []);
     } catch {
       setHistory([]);
     } finally {

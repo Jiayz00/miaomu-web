@@ -51,9 +51,12 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
   }, [bonsai.id]);
 
   // 询价：创建聊天会话
+  const encodedSlug = encodeURIComponent(bonsai.slug);
+  const detailPath = `/bonsais/${encodedSlug}`;
+
   const handleInquiry = async () => {
     if (!isAuthenticated) {
-      router.push(`/login?redirect=/bonsais/${bonsai.slug}`);
+      router.push(`/login?redirect=${encodeURIComponent(detailPath)}`);
       return;
     }
     setInquiryLoading(true);
@@ -77,7 +80,7 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
 
   const handleFavorite = () => {
     if (!isAuthenticated) {
-      router.push(`/login?redirect=/bonsais/${bonsai.slug}`);
+      router.push(`/login?redirect=${encodeURIComponent(detailPath)}`);
       return;
     }
     toggleFav.mutate({ bonsaiId: bonsai.id, favorited: isFavorited });
@@ -260,7 +263,7 @@ export function BonsaiDetail({ bonsai, related }: BonsaiDetailProps) {
               <p className="mt-4 text-xs text-text-muted">
                 登录后可收藏与询价 ·{' '}
                 <Link
-                  href={`/login?redirect=/bonsais/${bonsai.slug}`}
+                  href={`/login?redirect=${encodeURIComponent(detailPath)}`}
                   className="text-accent hover:underline"
                 >
                   去登录

@@ -8,10 +8,70 @@
 
 ## 目录
 
+- [v1.2.2](#v122---2026-07-25) — CI 修复 / 中文 slug 404 / 聊天 WebSocket / 图片 URL / shell CRLF
 - [v1.2.1](#v121---2026-07-24) — 服务器实测复测修复（SSR / ORB / 限流 / a11y）
 - [v1.2.0](#v120---2026-07-24) — 管理端布局编辑 / 视频上传 / 收藏筛选 / UI 全面优化
 - [v1.1.0](#v110---2026-07-22) — 十轮严格审查修复（安全 / QA / 性能 / a11y / DevOps）
 - [v1.0.0](#v100---2026-07-20) — 盆景艺术展示与销售平台全栈首版
+
+---
+
+## [v1.2.2] - 2026-07-25
+
+> **Tag**: [`v1.2.2`](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.2)
+> **Release**: [v1.2.2 — CI 修复 / 中文 slug 404 / 聊天 WebSocket / 图片 URL / shell CRLF](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.2)
+> **范围**：PATCH 版本，修复 CI pipeline、中文 slug 详情页 404、聊天异常、图片 URL 与部署脚本换行等关键问题
+
+### 修复（Fixed）
+
+#### Loop 4 关键问题修复
+
+- **[P0] GitHub Actions CI 三 job 全失败（Backend lint & build / Config syntax validate / Frontend lint & build）**
+  - `.github/workflows/ci.yml`：注入 `DATABASE_URL` / `REDIS_URL` / `JWT_SECRET` / `JWT_REFRESH_SECRET` / `ADMIN_DEFAULT_PASSWORD` 占位 env，解决 docker compose config 校验失败
+  - `backend/package.json` + `backend/.eslintrc.js` + `backend/tsconfig.eslint.json`：新增 TypeScript ESLint 配置与 `@typescript-eslint/*` 依赖，补齐 `npm run lint`
+  - `frontend/.eslintrc.json`：关闭 `react/no-unescaped-entities` 规则；将文案中的英文双引号改为中文引号，消除 lint error
+- **[P0] 中文 slug 盆景详情页 404**
+  - `frontend/src/app/(user)/bonsais/[slug]/page.tsx`：添加 `dynamic: 'force-dynamic'` 禁用静态生成；SSR 阶段使用运行时 `getApiBaseUrl()` 读取 `BACKEND_URL`；请求 URL 构建时先 `decodeURIComponent(slug)` 再 `encodeURIComponent(slug)`，避免二次编码
+  - `backend/src/modules/bonsais/bonsais.service.ts`：`findPublicBySlug` 对 URL-encoded slug 执行 `decodeURIComponent`
+  - `frontend/src/components/BonsaiCard.tsx` + `frontend/src/app/(user)/bonsais/[slug]/BonsaiDetail.tsx`：链接统一使用 `encodeURIComponent(slug)` 处理中文 slug
+- **[P0] 聊天接口异常 / WebSocket 无法收发消息**
+  - `frontend/src/components/ChatWidget.tsx`：引入 `PaginatedResponse`，历史消息从分页对象取 `res.data?.list ?? []`
+  - `frontend/src/lib/socket.ts`：配置 `transports: ['websocket', 'polling']` 作为反向代理不支持 WebSocket upgrade 时的兜底；socket URL 强制追加 `/chat` namespace（`SOCKET_URL ? .../chat : '/chat'`），与后端 `ChatGateway` 监听的 `/chat` 对齐
+- **[P1] 图片 URL 解析为内网后端地址 `http://backend:4000/...`**
+  - `frontend/src/lib/utils.ts`：`resolveImageUrl` 始终返回相对路径 `/uploads/...`，依赖 Caddy/Nginx 反向代理；OG 图片单独使用 `NEXT_PUBLIC_PUBLIC_ORIGIN` 生成公网绝对 URL
+  - `docker-compose.yml` + `.env.example`：补充 `NEXT_PUBLIC_PUBLIC_ORIGIN` 环境变量
+- **[P1] 部署后容器启动失败 `/bin/bash^M: bad interpreter`**
+  - 新增 `.gitattributes`：强制 `*.sh` / `*.yml` / `Dockerfile` / `Caddyfile` 使用 LF 换行
+  - 将 `backend/entrypoint.sh` / `backend/start.sh` / `deploy.sh` 等脚本转换为 LF 换行
+  - `.github/workflows/ci.yml`：增加换行检查，防止 CRLF 提交
+- **[P2] 管理端布局编辑器 a11y 警告**
+  - `frontend/src/app/admin/layout-editor/SectionConfigEditor.tsx`：显隐开关添加 `id="section-visible"`、`role="switch"`、`aria-checked`、`aria-label="是否显示该区块"`；story 段落 textarea 添加 `id={`story-paragraph-${idx}`}` 与 `aria-label={`第 ${idx + 1} 段内容`}`
+- **[P2] `frontend/package-lock.json` BOM / 同步异常**
+  - 运行 `npm install` 重新生成 lockfile，移除 BOM，恢复与 `package.json` 的一致性
+
+### 变更（Changed）
+
+- **`AGENTS.md`**
+  - 新增 Loop 4 / Loop 5 行与详细问题清单、修复记录、复测结果
+  - 扩展"常见提交问题与解决办法"表格：新增 shell CRLF、图片内网地址、聊天分页、WebSocket namespace、lockfile BOM、Playwright 二进制、PowerShell 分隔符等条目
+- **`.gitignore`**
+  - 新增 `.test-browser/`、`ci-logs/` 等浏览器测试产物忽略规则
+
+### 部署（Deployment）
+
+- 服务器部署位置：`/root/jia/penjing`（5 容器 healthy）
+- 数据卷保留：`penjing-mysql` / `penjing-redis` 数据未受影响
+- 健康检查：`/api/v1/health/live` 返回 200
+- Playwright E2E 全功能回归：用户端首页 / 列表 / 详情 / 登录 / 收藏 / 询价聊天；管理端 dashboard / bonsais / categories / chat / users / layout-editor / settings；移动端 iPhone 12 Pro 核心路径全部通过
+- 控制台无 error，API 无 5xx
+
+### 提交记录
+
+| Hash | 类型 | 说明 |
+|------|------|------|
+| `9f7b8fe` | fix | 修复 Docker build 失败、商品 404、聊天异常与图片 URL |
+| `c2bd074` | fix | 中文 slug 详情 404 与 WebSocket 连接兜底 |
+| `a6e48ec` | fix | 强制 shell 脚本与配置文件使用 LF 换行，修复容器 start.sh 执行失败 |
 
 ---
 
