@@ -1,4 +1,5 @@
 // 首页区块：联系方式（从 site settings 读取）
+// 东方雅致·墨绿+金色设计系统
 
 'use client';
 
@@ -43,6 +44,9 @@ interface ContactSectionProps {
   section: HomeSection;
 }
 
+// penjing 缓动曲线
+const EASE_SOFT = [0.22, 1, 0.36, 1] as const;
+
 export function ContactSection({ section }: ContactSectionProps) {
   const eyebrow = (section.config.eyebrow as string) || '联系我们';
   const title = section.title || '联系我们';
@@ -76,16 +80,26 @@ export function ContactSection({ section }: ContactSectionProps) {
   );
 
   return (
-    <section className="bg-primary-dark py-28 text-background">
-      <div className="container-luxury">
-        <div className="mb-16 text-center">
-          <span className="section-eyebrow justify-center">{eyebrow}</span>
-          <h2 className="font-serif text-4xl text-background md:text-5xl">{title}</h2>
+    <section
+      aria-label={title}
+      className="section-paper texture-paper py-20 md:py-28"
+    >
+      <div className="container-penjing">
+        <div className="mb-16 flex flex-col items-center text-center">
+          <span className="eyebrow-with-line">{eyebrow}</span>
+          <h2 className="display-section text-ink-text">{title}</h2>
           {subtitle && (
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-background/60">
+            <p className="body-base mt-4 max-w-xl text-ink-text-secondary">
               {subtitle}
             </p>
           )}
+          {/* 装饰印章 */}
+          <span
+            className="seal-gold mt-6 hidden h-12 w-12 text-[10px] md:flex"
+            aria-hidden="true"
+          >
+            联系
+          </span>
         </div>
 
         {visibleFields.length > 0 ? (
@@ -99,27 +113,26 @@ export function ContactSection({ section }: ContactSectionProps) {
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: i * 0.1 }}
-                  className="border border-background/10 bg-background/5 p-8 text-center"
+                  transition={{ duration: 0.5, delay: i * 0.1, ease: EASE_SOFT }}
+                  className="border border-penjing-fine bg-paper-warm p-8 text-center shadow-penjing-static transition-shadow duration-500 hover:shadow-penjing-hover"
                 >
                   <Icon
-                    className="mx-auto mb-4 h-6 w-6 text-accent"
+                    className="mx-auto mb-4 h-6 w-6 text-gold-deep"
                     strokeWidth={1.5}
+                    aria-hidden="true"
                   />
-                  <p className="mb-2 text-xs uppercase tracking-[0.2em] text-background/50">
+                  <p className="catalog-number mb-2 text-gold-muted">
                     {FIELD_LABELS[key]}
                   </p>
-                  <p className="text-sm text-background/90">{value}</p>
+                  <p className="body-base text-ink-text">{value}</p>
                 </motion.div>
               );
             })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="font-serif text-2xl text-background/70">暂无联系方式</p>
-            <p className="mt-2 text-sm text-background/40">
-              请在站点设置中配置联系信息
-            </p>
+            <p className="display-card text-ink-text-muted">暂无联系方式</p>
+            <p className="body-caption mt-2">请在站点设置中配置联系信息</p>
           </div>
         )}
       </div>

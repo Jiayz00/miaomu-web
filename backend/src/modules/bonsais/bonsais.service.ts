@@ -1,10 +1,7 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 import { resolvePagination, buildPaginatedResponse } from '../../common/dto/pagination.helper';
 import { CreateBonsaiDto } from './dto/create-bonsai.dto';
 import { UpdateBonsaiDto } from './dto/update-bonsai.dto';
@@ -27,9 +24,83 @@ const BONSAI_SORT_FIELD_MAP: Record<string, string> = {
  * 盆景服务
  * 处理盆景商品的 CRUD、查询、浏览记录
  */
+const PUBLIC_LIST_CACHE_PREFIX = 'bonsai:public:list';
+const FEATURED_CACHE_PREFIX = 'bonsai:public:featured';
+const PUBLIC_CACHE_PATTERN = 'bonsai:public:*';
+const LIST_CACHE_TTL_SECONDS = 60;
+const FEATURED_CACHE_TTL_SECONDS = 120;
+
+/**
+ * 列表/卡片场景字段白名单
+ *
+ * 覆盖 BonsaiCard（公开列表/精选/相关推荐）与管理端列表所需字段：
+ * id/name/slug/price/stock/origin/year/treeAge/height/width/isFeatured/status/createdAt/categoryId
+ * + category { id/name/slug }
+ * + images { id/url/isMain/sort }（列表仅取主图 1 张，见 images.where）
+ *
+ * 避免把 video/description/deletedAt/updatedAt 等未使用字段带回前端，
+ * 同时避免 admin 列表 _count 之外的多余关联。
+ */
+const BONSAI_CARD_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  price: true,
+  stock: true,
+  origin: true,
+  year: true,
+  treeAge: true,
+  height: true,
+  width: true,
+  isFeatured: true,
+  status: true,
+  createdAt: true,
+  categoryId: true,
+  category: { select: { id: true, name: true, slug: true } },
+  images: {
+    where: { isMain: true },
+    orderBy: [{ sort: 'asc' as const }],
+    take: 1,
+    select: { id: true, url: true, isMain: true, sort: true },
+  },
+} satisfies Prisma.BonsaiSelect;
+
+/**
+ * 管理端列表在卡片字段基础上追加收藏数统计
+ */
+const ADMIN_BONSAI_LIST_SELECT = {
+  ...BONSAI_CARD_SELECT,
+  _count: { select: { favorites: true } },
+} satisfies Prisma.BonsaiSelect;
+
 @Injectable()
 export class BonsaisService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  /**
+   * 生成公开列表缓存 key
+   * 按字母顺序序列化查询参数，确保相同查询得到相同 key
+   */
+  private buildPublicListCacheKey(query: QueryBonsaiDto): string {
+    const entries = Object.entries(query)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .sort(([a], [b]) => a.localeCompare(b));
+    return `${PUBLIC_LIST_CACHE_PREFIX}:${JSON.stringify(entries)}`;
+  }
+
+  /**
+   * 清除公开相关缓存（创建/更新/删除/状态变更后调用）
+   */
+  private async clearPublicCache(): Promise<void> {
+    try {
+      await this.redis.deletePattern(PUBLIC_CACHE_PATTERN);
+    } catch {
+      // 缓存清除失败不应阻塞主流程
+    }
+  }
 
   /**
    * 公开列表查询
@@ -37,6 +108,15 @@ export class BonsaisService {
    */
   async findPublicList(query: QueryBonsaiDto) {
     const { page, pageSize, skip } = resolvePagination(query);
+
+    // 尝试读取缓存（缓存失败不阻塞主流程）
+    const cacheKey = this.buildPublicListCacheKey(query);
+    try {
+      const cached = await this.redis.getJson<ReturnType<typeof buildPaginatedResponse<unknown>>>(cacheKey);
+      if (cached) return cached;
+    } catch {
+      // 继续走数据库
+    }
 
     const where: Prisma.BonsaiWhereInput = {
       deletedAt: null,
@@ -48,6 +128,10 @@ export class BonsaisService {
         { name: { contains: query.keyword } },
         { description: { contains: query.keyword } },
         { origin: { contains: query.keyword } },
+        { catalogNumber: { contains: query.keyword } },
+        { material: { contains: query.keyword } },
+        { era: { contains: query.keyword } },
+        { artisticDescription: { contains: query.keyword } },
       ];
     }
     if (query.categoryId) {
@@ -55,6 +139,15 @@ export class BonsaisService {
     }
     if (query.origin) {
       where.origin = { contains: query.origin };
+    }
+    if (query.catalogNumber) {
+      where.catalogNumber = { contains: query.catalogNumber };
+    }
+    if (query.material) {
+      where.material = { contains: query.material };
+    }
+    if (query.era) {
+      where.era = { contains: query.era };
     }
     if (query.yearFrom || query.yearTo) {
       where.year = {};
@@ -66,7 +159,7 @@ export class BonsaisService {
       if (query.priceMin !== undefined) where.price.gte = query.priceMin;
       if (query.priceMax !== undefined) where.price.lte = query.priceMax;
     }
-    if (query.featured === 'true' || query.featured === '1') {
+    if (query.featured === true) {
       where.isFeatured = true;
     }
 
@@ -76,13 +169,7 @@ export class BonsaisService {
     const [list, total] = await Promise.all([
       this.prisma.bonsai.findMany({
         where,
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          images: {
-            orderBy: [{ isMain: 'desc' }, { sort: 'asc' }],
-            take: 5,
-          },
-        },
+        select: BONSAI_CARD_SELECT,
         orderBy: { [sortField]: sortOrder },
         skip,
         take: pageSize,
@@ -90,24 +177,39 @@ export class BonsaisService {
       this.prisma.bonsai.count({ where }),
     ]);
 
-    return buildPaginatedResponse(list, total, page, pageSize);
+    const result = buildPaginatedResponse(list, total, page, pageSize);
+
+    // 写入缓存（失败不阻塞返回）
+    try {
+      await this.redis.setJson(cacheKey, result, LIST_CACHE_TTL_SECONDS);
+    } catch {
+      // 忽略缓存写入失败
+    }
+
+    return result;
   }
 
   /**
    * 详情查询（按 slug）
    * 同时记录浏览日志，浏览量 +1
    *
-   * 数据一致性：浏览量自增与浏览日志写入在同一事务中，
-   * 避免其中一方失败导致统计与日志脱节
+   * 性能优化：浏览量自增与浏览日志写入改为异步后台执行，
+   * 避免阻塞详情 API 响应。失败仅影响统计，不影响用户查看详情。
    */
   async findPublicBySlug(slug: string, opts?: { userId?: number | null; ip?: string; userAgent?: string }) {
     // 兼容前端对中文 slug 的 URL 编码：部分浏览器/反向代理会保留编码形态传入，
     // 而数据库通常存储原始中文 slug，先 decode 再查询可避免 404。
-    const decodedSlug = decodeURIComponent(slug);
+    let decodedSlug: string;
+    try {
+      decodedSlug = decodeURIComponent(slug);
+    } catch {
+      // 非法编码视为不存在，不暴露内部 URIError 细节
+      throw new BadRequestException('slug 格式不正确');
+    }
     const bonsai = await this.prisma.bonsai.findFirst({
       where: { slug: decodedSlug, deletedAt: null, status: 1 },
       include: {
-        category: true,
+        category: { select: { id: true, name: true, slug: true } },
         images: { orderBy: [{ isMain: 'desc' }, { sort: 'asc' }] },
       },
     });
@@ -116,21 +218,28 @@ export class BonsaisService {
       throw new NotFoundException('盆景不存在或已下架');
     }
 
-    // 事务保证：浏览量自增与浏览日志写入要么同时成功，要么同时回滚
-    await this.prisma.$transaction([
-      this.prisma.bonsai.update({
-        where: { id: bonsai.id },
-        data: { viewCount: { increment: 1 } },
-      }),
-      this.prisma.viewLog.create({
-        data: {
-          userId: opts?.userId ?? null,
-          bonsaiId: bonsai.id,
-          ip: opts?.ip ?? null,
-          userAgent: opts?.userAgent ?? null,
-        },
-      }),
-    ]);
+    // 异步后台记录浏览量与日志，不阻塞响应
+    Promise.resolve().then(async () => {
+      try {
+        await this.prisma.$transaction([
+          this.prisma.bonsai.update({
+            where: { id: bonsai.id },
+            data: { viewCount: { increment: 1 } },
+          }),
+          this.prisma.viewLog.create({
+            data: {
+              userId: opts?.userId ?? null,
+              bonsaiId: bonsai.id,
+              ip: opts?.ip ?? null,
+              userAgent: opts?.userAgent ?? null,
+            },
+          }),
+        ]);
+      } catch (err) {
+        // 浏览统计失败不应影响主流程，记录日志即可
+        console.error('记录浏览日志失败:', err);
+      }
+    });
 
     return { ...bonsai, viewCount: bonsai.viewCount + 1 };
   }
@@ -141,13 +250,7 @@ export class BonsaisService {
   async findFeatured(limit = 6) {
     return this.prisma.bonsai.findMany({
       where: { deletedAt: null, status: 1, isFeatured: true },
-      include: {
-        category: { select: { id: true, name: true, slug: true } },
-        images: {
-          orderBy: [{ isMain: 'desc' }, { sort: 'asc' }],
-          take: 3,
-        },
-      },
+      select: BONSAI_CARD_SELECT,
       orderBy: { createdAt: 'desc' },
       take: Math.min(limit, 50),
     });
@@ -172,12 +275,7 @@ export class BonsaisService {
         deletedAt: null,
         status: 1,
       },
-      include: {
-        images: {
-          orderBy: [{ isMain: 'desc' }, { sort: 'asc' }],
-          take: 1,
-        },
-      },
+      select: BONSAI_CARD_SELECT,
       take: Math.min(limit, 20),
       orderBy: { viewCount: 'desc' },
     });
@@ -197,12 +295,15 @@ export class BonsaisService {
       where.OR = [
         { name: { contains: query.keyword } },
         { description: { contains: query.keyword } },
+        { catalogNumber: { contains: query.keyword } },
+        { material: { contains: query.keyword } },
+        { era: { contains: query.keyword } },
       ];
     }
     if (query.categoryId) {
       where.categoryId = query.categoryId;
     }
-    if (query.featured === 'true' || query.featured === '1') {
+    if (query.featured === true) {
       where.isFeatured = true;
     }
 
@@ -214,9 +315,11 @@ export class BonsaisService {
         where,
         include: {
           category: { select: { id: true, name: true, slug: true } },
+          // 管理端列表也只需主图
           images: {
-            orderBy: [{ isMain: 'desc' }, { sort: 'asc' }],
-            take: 3,
+            where: { isMain: true },
+            orderBy: [{ sort: 'asc' }],
+            take: 1,
           },
           _count: { select: { favorites: true } },
         },
@@ -237,7 +340,7 @@ export class BonsaisService {
     const bonsai = await this.prisma.bonsai.findFirst({
       where: { id, deletedAt: null },
       include: {
-        category: true,
+        category: { select: { id: true, name: true, slug: true } },
         images: { orderBy: [{ isMain: 'desc' }, { sort: 'asc' }] },
         _count: { select: { favorites: true, viewLogs: true, chatRooms: true } },
       },
@@ -275,7 +378,7 @@ export class BonsaisService {
             ? { create: images.map((img) => ({ url: img.url, isMain: img.isMain ?? false, sort: img.sort ?? 0 })) }
             : undefined,
         },
-        include: { images: true, category: true },
+        include: { images: true, category: { select: { id: true, name: true, slug: true } } },
       });
     } catch (e) {
       // P2002: Unique constraint failed — slug 并发重复
@@ -331,7 +434,7 @@ export class BonsaisService {
             ...(price !== undefined && { price: new Prisma.Decimal(price) }),
             ...(categoryId !== undefined && { categoryId }),
           },
-          include: { images: { orderBy: [{ isMain: 'desc' }, { sort: 'asc' }] }, category: true },
+          include: { images: { orderBy: [{ isMain: 'desc' }, { sort: 'asc' }] }, category: { select: { id: true, name: true, slug: true } } },
         });
       });
     }
@@ -343,7 +446,7 @@ export class BonsaisService {
         ...(price !== undefined && { price: new Prisma.Decimal(price) }),
         ...(categoryId !== undefined && { categoryId }),
       },
-      include: { images: true, category: true },
+      include: { images: true, category: { select: { id: true, name: true, slug: true } } },
     });
   }
 

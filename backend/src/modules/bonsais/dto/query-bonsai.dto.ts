@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -75,11 +76,27 @@ export class QueryBonsaiDto extends PaginationDto {
 
   @ApiPropertyOptional({ description: '是否只看精选' })
   @IsOptional()
-  @IsString()
-  featured?: string;
+  @Type(() => Boolean)
+  @IsBoolean()
+  featured?: boolean;
 
   @ApiPropertyOptional({ description: 'slug' })
   @IsOptional()
   @IsString()
   slug?: string;
+
+  @ApiPropertyOptional({ description: '藏品编号' })
+  @IsOptional()
+  @IsString()
+  catalogNumber?: string;
+
+  @ApiPropertyOptional({ description: '材质/树种' })
+  @IsOptional()
+  @IsString()
+  material?: string;
+
+  @ApiPropertyOptional({ description: '年代/创作时期' })
+  @IsOptional()
+  @IsString()
+  era?: string;
 }

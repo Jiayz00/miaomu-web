@@ -17,44 +17,49 @@ export class CategoriesService {
 
   /**
    * 公开分类列表（仅启用，按 sort 排序）
+   *
+   * 字段精简：前台 /categories 仅使用 id/name/slug/description/coverImage/sort，
+   * 不再返回 status/_count 与 createdAt/updatedAt，减少响应体积。
    */
   async findPublicAll() {
     return this.prisma.category.findMany({
       where: { status: 1 },
       orderBy: [{ sort: 'asc' }, { id: 'asc' }],
-      include: {
-        _count: { select: { bonsais: { where: { deletedAt: null, status: 1 } } } },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        coverImage: true,
+        sort: true,
       },
     });
   }
 
   /**
-   * 公开分类详情（含该分类下的盆景列表）
+   * 公开分类详情
    *
-   * 性能设计：限制最大返回 100 条，避免单分类下盆景过多时
-   * 一次性加载全部数据（含 images 关联）造成响应过大与内存压力
+   * 字段精简：前台 /categories/[slug] 实际只使用 category 自身字段，
+   * 盆景列表通过 /bonsais?categoryId= 单独获取，故不再附带 bonsais，
+   * 避免一次性加载大量图片与冗余数据。
    */
   async findPublicBySlug(slug: string) {
     const category = await this.prisma.category.findFirst({
       where: { slug, status: 1 },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        coverImage: true,
+        sort: true,
+      },
     });
     if (!category) {
       throw new NotFoundException('分类不存在或已禁用');
     }
 
-    const bonsais = await this.prisma.bonsai.findMany({
-      where: { categoryId: category.id, deletedAt: null, status: 1 },
-      include: {
-        images: {
-          orderBy: [{ isMain: 'desc' }, { sort: 'asc' }],
-          take: 3,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100, // 限制最大返回数量，避免单分类数据量过大
-    });
-
-    return { ...category, bonsais };
+    return category;
   }
 
   /**

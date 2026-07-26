@@ -1,6 +1,12 @@
 // 聊天组件：实时消息收发
 // 可复用于用户端询价与管理后台
 //
+// 视觉语言：东方雅致 · 墨绿+金色
+// - 自方消息：墨色底（ink）+ 宣纸色文字
+// - 对方消息：宣纸暖底（paper-warm）+ 金色描边
+// - 发送按钮：金色（gold）+ 墨色图标
+// - 状态栏：著录卡式 hairline 分隔
+//
 // 健壮性设计：
 // 1. 发送中状态：消息发出后显示 loading，避免重复点击
 // 2. 未连接禁用：socket 未连接时禁用输入框，避免静默丢消息
@@ -159,14 +165,19 @@ export function ChatWidget({
     }
   };
 
-  // 空状态
+  // 空状态：未选择会话
   if (!roomId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-        <MessageCircle className="h-12 w-12 text-text-muted/40" strokeWidth={1} />
+      <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
+        <div
+          className="flex h-16 w-16 items-center justify-center rounded-full border border-[var(--penjing-border-fine)] bg-paper-warm"
+          aria-hidden="true"
+        >
+          <MessageCircle className="h-7 w-7 text-gold-deep" strokeWidth={1} />
+        </div>
         <div>
-          <p className="font-serif text-xl text-primary">选择会话开始对话</p>
-          <p className="mt-1 text-sm text-text-muted">
+          <p className="display-card font-serif text-ink">选择会话开始对话</p>
+          <p className="body-caption mt-2 text-ink-text-muted">
             从左侧列表选择一个询价会话
           </p>
         </div>
@@ -175,36 +186,46 @@ export function ChatWidget({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* 连接状态 + 错误提示（WCAG 4.1.3：role="status" 通知屏读器） */}
+    <div className="flex h-full flex-col bg-paper">
+      {/* 连接状态条 + 待发送提示（著录卡式 hairline 分隔） */}
       <div
-        className="flex items-center justify-between border-b border-text-muted/10 px-6 py-3"
+        className="flex items-center justify-between border-b border-[var(--penjing-border-hairline)] px-6 py-3"
         role="status"
         aria-live="polite"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <span
             aria-hidden="true"
             className={cn(
-              'h-2 w-2 rounded-full',
-              isConnected ? 'bg-accent' : 'bg-text-muted/40'
+              'h-2 w-2 rounded-full transition-colors duration-300',
+              isConnected
+                ? 'bg-[var(--penjing-state-success)] shadow-[0_0_0_3px_rgba(45,90,61,0.12)]'
+                : 'bg-gold animate-breathe',
             )}
           />
-          <span className="text-xs text-text-muted">
-            {isConnected ? '已连接' : '连接中…'}
+          <span className="font-sans text-[11px] uppercase tracking-[0.25em] text-ink-text-muted">
+            {isConnected ? '已连接' : '连接中'}
           </span>
         </div>
-        {pending.length > 0 && (
-          <span className="flex items-center gap-1 text-xs text-accent-dark">
-            <AlertCircle className="h-3 w-3" aria-hidden="true" />
-            {pending.length} 条待发送
-          </span>
-        )}
+        <AnimatePresence>
+          {pending.length > 0 && (
+            <motion.span
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 8 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="flex items-center gap-1.5 font-sans text-[11px] tracking-[0.1em] text-gold-deep"
+            >
+              <AlertCircle className="h-3 w-3" aria-hidden="true" />
+              {pending.length} 条待发送
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* 消息列表（role="log" 让屏读器宣读新消息，WCAG 4.1.3） */}
       <div
-        className="flex-1 overflow-y-auto px-6 py-4"
+        className="flex-1 overflow-y-auto px-6 py-5"
         role="log"
         aria-label="聊天消息"
         aria-live="polite"
@@ -213,11 +234,19 @@ export function ChatWidget({
         {loading ? (
           <InlineLoading text="加载消息" />
         ) : allMessages.length === 0 && pending.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center text-text-muted">
-            <p className="text-sm">暂无消息，发送第一条消息开始对话</p>
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <div
+              className="flex h-14 w-14 items-center justify-center rounded-full border border-[var(--penjing-border-fine)] bg-paper-warm"
+              aria-hidden="true"
+            >
+              <MessageCircle className="h-6 w-6 text-ink-text-faint" strokeWidth={1} />
+            </div>
+            <p className="body-caption text-ink-text-muted">
+              暂无消息，发送第一条消息开始对话
+            </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {allMessages.map((msg, i) => {
               const isSelf = msg.senderId === currentUserId;
               const showTime =
@@ -228,60 +257,83 @@ export function ChatWidget({
               return (
                 <div key={msg.id}>
                   {showTime && (
-                    <div className="my-4 text-center text-xs text-text-muted">
-                      {timeAgo(msg.createdAt)}
+                    <div className="my-4 flex items-center justify-center">
+                      <span className="font-sans text-[11px] uppercase tracking-[0.25em] text-ink-text-faint">
+                        {timeAgo(msg.createdAt)}
+                      </span>
                     </div>
                   )}
-                  <div
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                     className={cn(
                       'flex',
-                      isSelf ? 'justify-end' : 'justify-start'
+                      isSelf ? 'justify-end' : 'justify-start',
                     )}
                   >
                     <div
                       className={cn(
-                        'max-w-[70%] px-4 py-2.5 text-sm',
+                        'max-w-[75%] px-4 py-2.5 font-sans text-[14px] leading-[1.6] transition-shadow duration-300',
                         isSelf
-                          ? 'bg-primary text-background'
+                          ? // 自方消息：墨色底 + 宣纸文字
+                            'bg-ink text-paper shadow-[0_2px_8px_-4px_rgba(15,40,32,0.3)]'
                           : isAdmin
-                          ? 'bg-accent/20 text-primary'
-                          : 'bg-surface text-text border border-text-muted/10'
+                          ? // 管理员视角下：对方消息 = 用户消息，宣纸暖底 + 金色描边
+                            'bg-paper-warm text-ink shadow-[inset_0_0_0_1px_var(--penjing-border-gold)]'
+                          : // 用户视角下：对方消息 = 管理员消息，宣纸白底 + hairline 描边
+                            'bg-paper text-ink-text shadow-[inset_0_0_0_1px_var(--penjing-border-fine)]',
                       )}
                     >
                       {msg.content}
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               );
             })}
             {/* 待发送消息（连接恢复后会自动发出） */}
-            {pending.map((msg) => (
-              <div key={msg.tempId} className="flex justify-end">
-                <div className="max-w-[70%] bg-primary/50 px-4 py-2.5 text-sm text-background/80">
-                  {msg.content}
-                  <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-background/60">
-                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                    待发
-                  </span>
-                </div>
-              </div>
-            ))}
+            <AnimatePresence>
+              {pending.map((msg) => (
+                <motion.div
+                  key={msg.tempId}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0.5, y: 0 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  className="flex justify-end"
+                >
+                  <div className="max-w-[75%] bg-ink/60 px-4 py-2.5 font-sans text-[14px] leading-[1.6] text-paper/85 shadow-[inset_0_0_0_1px_var(--penjing-border-gold)]">
+                    {msg.content}
+                    <span className="ml-2 inline-flex items-center gap-1 align-middle font-sans text-[10px] uppercase tracking-[0.15em] text-gold-bright/80">
+                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                      待发
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
         )}
       </div>
 
-      {/* 输入区 */}
-      <div className="border-t border-text-muted/10 p-4">
-        {sendError && !isConnected && (
-          <p
-            className="mb-2 flex items-center gap-1 text-xs text-accent-dark"
-            role="alert"
-          >
-            <AlertCircle className="h-3 w-3" aria-hidden="true" />
-            未连接，消息将在连接恢复后自动发送
-          </p>
-        )}
+      {/* 输入区：hairline 分隔 + 金色发送按钮 */}
+      <div className="border-t border-[var(--penjing-border-hairline)] bg-paper px-4 py-4 md:px-6">
+        <AnimatePresence>
+          {sendError && !isConnected && (
+            <motion.p
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="mb-2 flex items-center gap-1.5 font-sans text-[11px] tracking-[0.1em] text-[var(--penjing-state-error)]"
+              role="alert"
+            >
+              <AlertCircle className="h-3 w-3" aria-hidden="true" />
+              未连接，消息将在连接恢复后自动发送
+            </motion.p>
+          )}
+        </AnimatePresence>
         <div className="flex items-center gap-3">
           <input
             id="chat-widget-input"
@@ -298,13 +350,22 @@ export function ChatWidget({
             placeholder={isConnected ? placeholder : '正在连接…'}
             disabled={!roomId}
             aria-label="输入聊天消息"
-            className="input-luxury flex-1 disabled:opacity-50"
+            className={cn(
+              'flex h-11 flex-1 border border-[var(--penjing-border-fine)] bg-paper px-4 font-sans text-sm text-ink-text transition-colors',
+              'placeholder:text-ink-text-faint focus:border-gold focus:outline-none',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+            )}
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={!input.trim() || !roomId || sending}
-            className="flex h-11 w-11 items-center justify-center bg-primary text-background transition-colors hover:bg-primary-light disabled:opacity-30"
+            className={cn(
+              'flex h-11 w-11 flex-shrink-0 items-center justify-center bg-gold text-ink-deepest transition-all duration-300',
+              'hover:bg-gold-bright hover:shadow-penjing-gold-strong',
+              'active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-gold disabled:hover:shadow-none',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
+            )}
             aria-label="发送消息"
           >
             {sending ? (
@@ -337,21 +398,41 @@ export function ChatRoomItem({
     <button
       type="button"
       onClick={onClick}
+      aria-current={active ? 'true' : undefined}
       className={cn(
-        'w-full border-b border-text-muted/10 px-4 py-4 text-left transition-colors',
-        active ? 'bg-background' : 'hover:bg-background/50'
+        'chat-room-item group relative w-full border-b border-[var(--penjing-border-hairline)] px-5 py-4 text-left transition-all duration-300',
+        active
+          ? 'bg-paper-warm'
+          : 'hover:bg-paper-warm/60',
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="truncate text-sm font-medium text-primary">{name}</span>
+      {/* 选中态左侧金色竖条 */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute left-0 top-1/2 h-7 w-[2px] -translate-y-1/2 bg-gold transition-opacity duration-300',
+          active ? 'opacity-100' : 'opacity-0',
+        )}
+      />
+      <div className="flex items-baseline justify-between gap-3">
+        <span
+          className={cn(
+            'truncate font-sans text-sm font-medium transition-colors duration-300',
+            active ? 'text-ink' : 'text-ink-text group-hover:text-ink',
+          )}
+        >
+          {name}
+        </span>
         {time && (
-          <span className="ml-2 shrink-0 text-xs text-text-muted">
+          <span className="ml-2 flex-shrink-0 font-sans text-[11px] tracking-[0.05em] text-ink-text-faint">
             {formatDateTime(time)}
           </span>
         )}
       </div>
       {subtitle && (
-        <p className="mt-1 truncate text-xs text-text-muted">{subtitle}</p>
+        <p className="mt-1 truncate font-sans text-xs text-ink-text-muted">
+          {subtitle}
+        </p>
       )}
     </button>
   );

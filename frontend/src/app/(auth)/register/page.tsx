@@ -1,4 +1,5 @@
-// 注册页
+// 注册页：双栏布局，左栏深墨品牌区，右栏宣纸表单区
+// 东方雅致设计系统：section-ink-deep + section-paper + btn-gold + input-penjing
 
 'use client';
 
@@ -6,7 +7,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAuthStore } from '@/stores/auth-store';
 import { ApiError } from '@/lib/api';
@@ -80,38 +81,131 @@ function RegisterForm() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-primary-dark px-6 py-20">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 top-1/4 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
-        <div className="absolute -right-40 bottom-1/4 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-md"
+    <div
+      className="grid min-h-dvh grid-cols-1 lg:grid-cols-[1.1fr_1fr]"
+      aria-label="注册"
+    >
+      {/* ===== 左栏：深墨品牌区 ===== */}
+      <aside
+        className="section-ink-deep texture-ink relative hidden flex-col justify-between overflow-hidden p-12 lg:flex lg:p-16"
+        aria-label="品牌信息"
       >
-        <div className="border border-background/10 bg-background/5 p-10 backdrop-blur-sm">
-          <div className="mb-10 text-center">
+        {/* 装饰光晕 */}
+        <div
+          className="pointer-events-none absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-gold/5 blur-3xl"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -right-32 bottom-1/4 h-96 w-96 rounded-full bg-gold/5 blur-3xl"
+          aria-hidden="true"
+        />
+
+        {/* 顶部品牌 */}
+        <div className="relative">
+          <Link
+            href="/"
+            className="inline-flex items-baseline gap-3 font-serif text-2xl text-paper transition-colors hover:text-gold-bright"
+          >
+            <span
+              className="inline-block border border-gold px-2 py-0.5 font-serif text-base text-gold-bright"
+              aria-hidden="true"
+            >
+              盆
+            </span>
+            <span>盆景艺术</span>
+          </Link>
+          <p className="mt-3 font-sans text-[11px] font-medium uppercase tracking-[0.4em] text-gold/70">
+            Penjing · 藏苑
+          </p>
+        </div>
+
+        {/* 中部标语 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="relative max-w-md"
+        >
+          <span className="eyebrow-label text-gold-bright">
+            Begin Your Journey
+          </span>
+          <h2 className="display-section mt-4 m-0 text-paper">
+            入苑为客
+            <br />
+            启程鉴藏
+          </h2>
+          <p className="body-large mt-6 text-paper/65">
+            创建藏苑账号，记录您与每一件藏品相遇的时刻。收藏、询价、对话，皆由此始。
+          </p>
+          <span
+            className="mt-8 block h-px w-16 bg-gold"
+            aria-hidden="true"
+          />
+        </motion.div>
+
+        {/* 底部装饰文字 */}
+        <div className="relative">
+          <p className="font-serif text-sm italic text-paper/40">
+            「藏苑一开，山河入怀」
+          </p>
+          <p className="mt-2 font-sans text-[10px] uppercase tracking-[0.3em] text-paper/35">
+            — 藏苑雅训
+          </p>
+        </div>
+      </aside>
+
+      {/* ===== 右栏：宣纸表单区 ===== */}
+      <section
+        className="section-paper texture-paper relative flex items-center justify-center px-6 py-16 sm:px-10 md:px-16"
+        aria-label="注册表单"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-[460px]"
+        >
+          {/* 移动端品牌（lg 以下显示，因左栏隐藏） */}
+          <div className="mb-10 text-center lg:hidden">
             <Link
               href="/"
-              className="font-serif text-3xl text-background hover:text-accent"
+              className="inline-flex items-baseline gap-2 font-serif text-xl text-ink transition-colors hover:text-gold-deep"
             >
-              盆景艺术
+              <span
+                className="inline-block border border-gold px-2 py-0.5 font-serif text-sm text-gold-deep"
+                aria-hidden="true"
+              >
+                盆
+              </span>
+              <span>盆景艺术</span>
             </Link>
-            <p className="mt-2 text-xs uppercase tracking-[0.3em] text-accent">
-              Penjing
+            <p className="mt-2 font-sans text-[10px] uppercase tracking-[0.35em] text-gold-deep">
+              Penjing · 藏苑
             </p>
-            <h1 className="mt-8 font-serif text-3xl text-background">创建账号</h1>
-            <p className="mt-2 text-sm text-background/50">开启您的盆景收藏之旅</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5" aria-label="注册表单">
-            <div>
+          {/* 标题 */}
+          <div className="mb-10">
+            <span className="eyebrow-with-line">
+              <span className="eyebrow-label">Create Account</span>
+            </span>
+            <h1 className="display-section m-0 text-ink">创建账号</h1>
+            <p className="body-base mt-3 text-ink-text-secondary">
+              开启您的盆景收藏之旅
+            </p>
+          </div>
+
+          {/* 表单 */}
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-6"
+            aria-label="注册表单"
+            noValidate
+          >
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="register-username"
-                className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60"
+                className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-ink-text-secondary"
               >
                 用户名
               </label>
@@ -121,16 +215,16 @@ function RegisterForm() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="3-50 位，字母、数字、下划线"
-                className="w-full border-0 border-b border-background/20 bg-transparent py-3 text-background placeholder:text-background/30 focus:border-accent focus:outline-none focus:ring-0"
+                className="input-penjing"
                 autoComplete="username"
                 required
               />
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="register-email"
-                className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60"
+                className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-ink-text-secondary"
               >
                 邮箱
               </label>
@@ -140,16 +234,16 @@ function RegisterForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="请输入邮箱"
-                className="w-full border-0 border-b border-background/20 bg-transparent py-3 text-background placeholder:text-background/30 focus:border-accent focus:outline-none focus:ring-0"
+                className="input-penjing"
                 autoComplete="email"
                 required
               />
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="register-password"
-                className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60"
+                className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-ink-text-secondary"
               >
                 密码
               </label>
@@ -160,26 +254,30 @@ function RegisterForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="8-32 位，需含大小写字母、数字、特殊字符"
-                  className="w-full border-0 border-b border-background/20 bg-transparent py-3 pr-10 text-background placeholder:text-background/30 focus:border-accent focus:outline-none focus:ring-0"
+                  className="input-penjing pr-10"
                   autoComplete="new-password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 text-background/40 hover:text-accent"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-ink-text-faint transition-colors hover:text-gold-deep"
                   aria-label={showPassword ? '隐藏密码' : '显示密码'}
                   aria-pressed={showPassword}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
                 </button>
               </div>
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="register-confirm-password"
-                className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-background/60"
+                className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-ink-text-secondary"
               >
                 确认密码
               </label>
@@ -189,39 +287,58 @@ function RegisterForm() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="再次输入密码"
-                className="w-full border-0 border-b border-background/20 bg-transparent py-3 text-background placeholder:text-background/30 focus:border-accent focus:outline-none focus:ring-0"
+                className="input-penjing"
                 autoComplete="new-password"
                 required
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-400" role="alert">
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="border border-[rgba(184,66,58,0.25)] bg-[rgba(184,66,58,0.08)] px-4 py-3 font-sans text-sm text-[var(--penjing-state-error)]"
+              >
                 {error}
-              </p>
+              </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 bg-accent py-4 text-xs uppercase tracking-[0.3em] text-primary-dark transition-all duration-500 hover:bg-accent-light disabled:opacity-50"
+              className="btn-gold disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? '注册中…' : '注册'}
-              {!loading && <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <>
+                  注册
+                  <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                </>
+              )}
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-background/50">
+          {/* 底部链接 */}
+          <div className="mt-10 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-[var(--penjing-border-fine)]" />
+            <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-ink-text-faint">
+              已是藏客
+            </span>
+            <span className="h-px flex-1 bg-[var(--penjing-border-fine)]" />
+          </div>
+
+          <p className="mt-6 text-center font-sans text-sm text-ink-text-secondary">
             已有账号？{' '}
             <Link
               href={`/login${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}
-              className="text-accent hover:underline"
+              className="font-medium text-gold-deep underline-offset-4 transition-colors hover:text-gold hover:underline"
             >
               去登录
             </Link>
           </p>
-        </div>
-      </motion.div>
+        </motion.div>
+      </section>
     </div>
   );
 }

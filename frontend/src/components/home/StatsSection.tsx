@@ -1,5 +1,6 @@
 // 首页区块：数据统计
 // 从 /admin/dashboard 拉取公开统计（盆景数、分类数、浏览量等）
+// 东方雅致·墨绿+金色设计系统
 
 'use client';
 
@@ -33,6 +34,9 @@ interface DashboardStats {
   totalFavorites: number;
   totalCategories?: number;
 }
+
+// penjing 缓动曲线
+const EASE_SOFT = [0.22, 1, 0.36, 1] as const;
 
 export function StatsSection({ section }: StatsSectionProps) {
   const eyebrow = (section.config.eyebrow as string) || '平台数据';
@@ -73,15 +77,16 @@ export function StatsSection({ section }: StatsSectionProps) {
   };
 
   return (
-    <section className="bg-background py-28">
-      <div className="container-luxury">
-        <div className="mb-16 text-center">
-          <span className="section-eyebrow justify-center">{eyebrow}</span>
-          <h2 className="font-serif text-4xl text-primary md:text-5xl">{title}</h2>
+    <section
+      aria-label={title}
+      className="section-ink-deep texture-ink py-20 md:py-28"
+    >
+      <div className="container-penjing">
+        <div className="mb-16 flex flex-col items-center text-center">
+          <span className="eyebrow-with-line text-gold-bright">{eyebrow}</span>
+          <h2 className="display-section text-paper">{title}</h2>
           {subtitle && (
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-text-light">
-              {subtitle}
-            </p>
+            <p className="body-base mt-4 max-w-xl text-paper/70">{subtitle}</p>
           )}
         </div>
 
@@ -129,12 +134,16 @@ function StatCard({
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5, delay }}
-      className="border border-text-muted/15 bg-surface p-8 text-center"
+      transition={{ duration: 0.5, delay, ease: EASE_SOFT }}
+      className="border border-penjing-gold/30 bg-ink-deep/40 p-8 text-center backdrop-blur-sm transition-colors duration-500 hover:border-penjing-gold/60"
     >
-      <Icon className="mx-auto mb-4 h-6 w-6 text-accent" strokeWidth={1.5} />
-      <p className="font-serif text-4xl text-primary">{display.toLocaleString('zh-CN')}</p>
-      <p className="mt-2 text-xs uppercase tracking-[0.2em] text-text-muted">{label}</p>
+      <Icon
+        className="mx-auto mb-4 h-6 w-6 text-gold-bright"
+        strokeWidth={1.5}
+        aria-hidden="true"
+      />
+      <p className="display-card text-paper">{display.toLocaleString('zh-CN')}</p>
+      <p className="catalog-number mt-3 text-gold-muted">{label}</p>
     </motion.div>
   );
 }

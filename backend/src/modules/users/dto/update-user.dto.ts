@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
@@ -28,6 +28,8 @@ export class UpdateUserDto {
   @ApiPropertyOptional({ description: '头像 URL' })
   @IsOptional()
   @IsString()
+  @Length(1, 500)
+  @Matches(/^(https?:\/\/|\/uploads\/).+$/, { message: '头像 URL 必须是 http(s) 链接或 /uploads/ 站内路径' })
   avatar?: string;
 
   @ApiPropertyOptional({ description: '状态：1启用 0禁用', enum: [0, 1] })

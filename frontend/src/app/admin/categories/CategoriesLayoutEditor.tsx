@@ -6,7 +6,11 @@
 // - 实时预览（左侧表单 + 右侧迷你预览）
 // - 保存 / 重置默认
 //
-// 接口：
+// 设计系统对齐：
+// - 输入框：input-penjing 风格（border-penjing-fine + focus:border-gold）
+// - 章节：paper-warm 背景 + 金色短线装饰
+// - 按钮：btn-gold / btn-outline-gold
+// - 接口：
 // - GET /admin/settings/categories-layout
 // - PUT /admin/settings/categories-layout
 // - POST /admin/settings/categories-layout/reset
@@ -39,8 +43,9 @@ import {
 } from '@/lib/default-categories-layout';
 import type { CategoriesLayoutConfig } from '@/lib/types';
 
+// 统一输入样式：与 BonsaiForm / 分类弹窗一致的 input-penjing 风格
 const inputClass =
-  'w-full border border-text-muted/20 bg-surface px-4 py-2.5 text-text transition-colors focus:border-accent focus:outline-none';
+  'w-full border border-[var(--penjing-border-fine)] bg-paper px-4 py-2.5 font-sans text-sm text-ink-text transition-colors placeholder:text-ink-text-faint focus:border-gold focus:outline-none';
 
 export function CategoriesLayoutEditor() {
   const queryClient = useQueryClient();
@@ -129,7 +134,7 @@ export function CategoriesLayoutEditor() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
+        <Loader2 className="h-8 w-8 animate-spin text-gold" aria-hidden="true" />
       </div>
     );
   }
@@ -140,10 +145,11 @@ export function CategoriesLayoutEditor() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-serif text-2xl text-primary">分类页排版</h2>
-          <p className="mt-1 text-sm text-text-muted">
+          <span className="eyebrow-label">排版设置</span>
+          <h2 className="display-card mt-2 text-ink">分类页排版</h2>
+          <p className="body-base mt-2 text-ink-text-secondary">
             配置用户端 /categories 页面的展示方式，保存后立即生效
           </p>
         </div>
@@ -152,7 +158,7 @@ export function CategoriesLayoutEditor() {
             type="button"
             onClick={handleReset}
             disabled={resetting}
-            className="flex items-center gap-2 border border-text-muted/30 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-text-light transition-colors hover:border-text-light disabled:opacity-50"
+            className="btn-outline-gold disabled:opacity-50"
           >
             {resetting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -165,7 +171,7 @@ export function CategoriesLayoutEditor() {
             type="button"
             onClick={handleSave}
             disabled={saving || !hasChanges}
-            className="flex items-center gap-2 bg-primary px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-gold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -178,14 +184,14 @@ export function CategoriesLayoutEditor() {
       </div>
 
       {hasChanges && (
-        <div className="mb-6 inline-flex items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+        <div className="mb-6 inline-flex items-center gap-2 border border-gold/40 bg-gold/5 px-3 py-1.5 font-sans text-xs text-gold-deep">
           <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
           有未保存的改动
         </div>
       )}
       {error && (
         <div
-          className="mb-6 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600"
+          className="mb-6 border border-state-error/40 bg-state-error/5 px-4 py-3 font-sans text-sm text-state-error"
           role="alert"
         >
           {error}
@@ -193,7 +199,7 @@ export function CategoriesLayoutEditor() {
       )}
       {success && (
         <div
-          className="mb-6 inline-flex items-center gap-2 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700"
+          className="mb-6 inline-flex items-center gap-2 border border-state-success/40 bg-state-success/5 px-4 py-3 font-sans text-sm text-state-success"
           role="status"
         >
           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -205,8 +211,11 @@ export function CategoriesLayoutEditor() {
         {/* 左侧：表单 */}
         <div className="space-y-6">
           {/* 文案 */}
-          <section className="border border-text-muted/15 bg-surface p-6">
-            <h3 className="mb-5 font-serif text-lg text-primary">页面文案</h3>
+          <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-gold" aria-hidden="true" />
+              <h3 className="display-card text-ink">页面文案</h3>
+            </div>
             <div className="space-y-4">
               <div>
                 <label className="label-luxury" htmlFor="cat-layout-eyebrow">
@@ -254,8 +263,11 @@ export function CategoriesLayoutEditor() {
           </section>
 
           {/* 排版 */}
-          <section className="border border-text-muted/15 bg-surface p-6">
-            <h3 className="mb-5 font-serif text-lg text-primary">排版方式</h3>
+          <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-gold" aria-hidden="true" />
+              <h3 className="display-card text-ink">排版方式</h3>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {LAYOUT_MODE_OPTIONS.map((opt) => {
                 const Icon =
@@ -274,22 +286,22 @@ export function CategoriesLayoutEditor() {
                     className={cn(
                       'border p-4 text-left transition-all',
                       active
-                        ? 'border-accent bg-accent/5'
-                        : 'border-text-muted/20 hover:border-text-muted/40',
+                        ? 'border-gold bg-gold/5'
+                        : 'border-[var(--penjing-border-fine)] hover:border-[var(--penjing-border-strong)]',
                     )}
                   >
                     <Icon
                       className={cn(
                         'mb-2 h-5 w-5',
-                        active ? 'text-accent' : 'text-text-light',
+                        active ? 'text-gold-deep' : 'text-ink-text-secondary',
                       )}
                       strokeWidth={1.5}
                       aria-hidden="true"
                     />
-                    <p className={cn('text-sm font-medium', active ? 'text-accent' : 'text-primary')}>
+                    <p className={cn('font-sans text-sm font-medium', active ? 'text-gold-deep' : 'text-ink')}>
                       {opt.label}
                     </p>
-                    <p className="mt-1 text-xs text-text-muted">{opt.description}</p>
+                    <p className="mt-1 font-sans text-xs text-ink-text-muted">{opt.description}</p>
                   </button>
                 );
               })}
@@ -297,8 +309,11 @@ export function CategoriesLayoutEditor() {
           </section>
 
           {/* 列数 + 宽高比 */}
-          <section className="border border-text-muted/15 bg-surface p-6">
-            <h3 className="mb-5 font-serif text-lg text-primary">网格参数</h3>
+          <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-gold" aria-hidden="true" />
+              <h3 className="display-card text-ink">网格参数</h3>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label-luxury" htmlFor="cat-layout-columns">
@@ -318,7 +333,7 @@ export function CategoriesLayoutEditor() {
                   ))}
                 </select>
                 {form.layout === 'list' && (
-                  <p className="mt-1 text-xs text-text-muted">列表模式下不适用</p>
+                  <p className="mt-1 font-sans text-xs text-ink-text-muted">列表模式下不适用</p>
                 )}
               </div>
               <div>
@@ -339,15 +354,18 @@ export function CategoriesLayoutEditor() {
                   ))}
                 </select>
                 {form.layout === 'masonry' && (
-                  <p className="mt-1 text-xs text-text-muted">瀑布流由图片自然高度决定</p>
+                  <p className="mt-1 font-sans text-xs text-ink-text-muted">瀑布流由图片自然高度决定</p>
                 )}
               </div>
             </div>
           </section>
 
           {/* 排序 */}
-          <section className="border border-text-muted/15 bg-surface p-6">
-            <h3 className="mb-5 font-serif text-lg text-primary">排序方式</h3>
+          <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-gold" aria-hidden="true" />
+              <h3 className="display-card text-ink">排序方式</h3>
+            </div>
             <div className="space-y-2">
               {SORT_BY_OPTIONS.map((opt) => (
                 <label
@@ -355,8 +373,8 @@ export function CategoriesLayoutEditor() {
                   className={cn(
                     'flex cursor-pointer items-center gap-3 border p-3 transition-colors',
                     form.sortBy === opt.value
-                      ? 'border-accent bg-accent/5'
-                      : 'border-text-muted/20 hover:border-text-muted/40',
+                      ? 'border-gold bg-gold/5'
+                      : 'border-[var(--penjing-border-fine)] hover:border-[var(--penjing-border-strong)]',
                   )}
                 >
                   <input
@@ -371,24 +389,27 @@ export function CategoriesLayoutEditor() {
                     className={cn(
                       'flex h-4 w-4 items-center justify-center rounded-full border',
                       form.sortBy === opt.value
-                        ? 'border-accent'
-                        : 'border-text-muted/40',
+                        ? 'border-gold'
+                        : 'border-[var(--penjing-border-strong)]',
                     )}
                     aria-hidden="true"
                   >
                     {form.sortBy === opt.value && (
-                      <span className="h-2 w-2 rounded-full bg-accent" />
+                      <span className="h-2 w-2 rounded-full bg-gold" />
                     )}
                   </span>
-                  <span className="text-sm text-primary">{opt.label}</span>
+                  <span className="font-sans text-sm text-ink">{opt.label}</span>
                 </label>
               ))}
             </div>
           </section>
 
           {/* 显示开关 */}
-          <section className="border border-text-muted/15 bg-surface p-6">
-            <h3 className="mb-5 font-serif text-lg text-primary">显示开关</h3>
+          <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-gold" aria-hidden="true" />
+              <h3 className="display-card text-ink">显示开关</h3>
+            </div>
             <div className="space-y-3">
               <ToggleRow
                 label="显示分类描述"
@@ -415,22 +436,22 @@ export function CategoriesLayoutEditor() {
         {/* 右侧：迷你预览 */}
         <div>
           <div className="sticky top-24">
-            <div className="mb-3 flex items-center gap-2 text-primary">
-              <Eye className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-              <span className="font-serif text-lg">实时预览</span>
+            <div className="mb-3 flex items-center gap-2 text-ink">
+              <Eye className="h-4 w-4 text-gold-deep" strokeWidth={1.5} aria-hidden="true" />
+              <span className="display-card text-ink">实时预览</span>
             </div>
-            <div className="border border-text-muted/15 bg-background p-4">
+            <div className="border border-[var(--penjing-border-fine)] bg-paper p-4">
               <div className="mb-3 text-center">
                 {form.eyebrow && (
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                  <span className="font-sans text-[10px] uppercase tracking-[0.2em] text-ink-text-muted">
                     {form.eyebrow}
                   </span>
                 )}
-                <p className="font-serif text-lg text-primary">
+                <p className="display-card text-ink">
                   {form.title || '分类一览'}
                 </p>
                 {form.subtitle && (
-                  <p className="mt-1 text-[10px] text-text-light">{form.subtitle}</p>
+                  <p className="mt-1 font-sans text-[10px] text-ink-text-secondary">{form.subtitle}</p>
                 )}
               </div>
               {/* 预览网格 */}
@@ -485,7 +506,7 @@ export function CategoriesLayoutEditor() {
                 </div>
               )}
             </div>
-            <p className="mt-3 text-xs text-text-muted">
+            <p className="mt-3 font-sans text-xs text-ink-text-muted">
               注：预览为示意图，实际显示以用户端 /categories 页面为准
             </p>
           </div>
@@ -508,10 +529,10 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-3 border border-text-muted/15 p-3 transition-colors hover:border-text-muted/30">
+    <label className="flex cursor-pointer items-start justify-between gap-3 border border-[var(--penjing-border-fine)] p-3 transition-colors hover:border-[var(--penjing-border-strong)]">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-primary">{label}</p>
-        <p className="mt-0.5 text-xs text-text-muted">{description}</p>
+        <p className="font-sans text-sm text-ink">{label}</p>
+        <p className="mt-0.5 font-sans text-xs text-ink-text-muted">{description}</p>
       </div>
       <button
         type="button"
@@ -521,12 +542,12 @@ function ToggleRow({
         onClick={() => onChange(!checked)}
         className={cn(
           'relative flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors',
-          checked ? 'bg-accent' : 'bg-text-muted/30',
+          checked ? 'bg-gold' : 'bg-[var(--penjing-border-strong)]',
         )}
       >
         <span
           className={cn(
-            'inline-block h-5 w-5 transform rounded-full bg-background shadow transition-transform',
+            'inline-block h-5 w-5 transform rounded-full bg-paper shadow transition-transform',
             checked ? 'translate-x-5' : 'translate-x-0.5',
           )}
         />
@@ -555,20 +576,20 @@ function PreviewCard({
 }) {
   return (
     <div
-      className="relative overflow-hidden bg-primary-dark/40"
+      className="relative overflow-hidden bg-ink-deep/40"
       style={{ aspectRatio: aspectCss, width }}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-dark/60 to-primary-light/40" />
+      <div className="absolute inset-0 bg-gradient-to-br from-ink-deep/60 to-ink-mid/40" />
       {showOverlay && (
-        <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-deep/80 to-transparent" />
       )}
       <div className="absolute inset-x-0 bottom-0 p-2">
-        <p className="font-serif text-xs text-background">{name}</p>
+        <p className="font-serif text-xs text-paper">{name}</p>
         {showDescription && (
-          <p className="mt-0.5 line-clamp-1 text-[9px] text-background/60">{description}</p>
+          <p className="mt-0.5 line-clamp-1 text-[9px] text-paper/60">{description}</p>
         )}
         {showArrow && (
-          <p className="mt-1 text-[9px] uppercase tracking-wider text-accent">探索 →</p>
+          <p className="mt-1 font-sans text-[9px] uppercase tracking-wider text-gold">探索 →</p>
         )}
       </div>
     </div>

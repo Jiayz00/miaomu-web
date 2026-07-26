@@ -3,40 +3,151 @@
 @tailwind utilities;
 
 /* ============================================
-   设计系统 CSS 变量 - 盆景艺术高级感配色
+   盆景艺术 · 品牌设计系统 v2
+   东方雅致 · 墨绿 + 金色 色阶体系
+   从"商品展示"升级为"艺术策展"
    ============================================ */
+
 :root {
-  /* 主色调：深墨绿系 */
-  --color-primary: #1a3a2e;
-  --color-primary-light: #2d5a3d;
-  --color-primary-dark: #0f2820;
+  /* ---- 墨色阶（品牌主色，单一色相及其明度阶梯） ---- */
+  --penjing-ink-deepest: #102620;
+  --penjing-ink-deep: #152d24;
+  --penjing-ink: #1f4034;
+  --penjing-ink-mid: #2d5a3d;
+  --penjing-ink-soft: #3d6b50;
+  --penjing-ink-tint: #e8efeb;
 
-  /* 点缀：金色系 */
-  --color-accent: #c9a961;
-  --color-accent-light: #d9bd7a;
-  --color-accent-dark: #a8893f;
+  /* ---- 金色阶（品牌装饰色） ---- */
+  --penjing-gold-bright: #e6c878;
+  --penjing-gold: #c9a961;
+  --penjing-gold-deep: #a8893f;
+  --penjing-gold-muted: #8a7330;
 
-  /* 背景：米白暖调 */
-  --color-background: #faf8f5;
+  /* ---- 宣纸色阶（中性/表面） ---- */
+  --penjing-paper: #faf8f5;
+  --penjing-paper-warm: #f4efe7;
+  --penjing-paper-aged: #ebe3d4;
+  --penjing-paper-deep: #ddd3bf;
+
+  /* ---- 文字色（基于墨色阶派生） ---- */
+  --penjing-ink-text: #1a2820;
+  --penjing-ink-text-secondary: #4a5a50;
+  --penjing-ink-text-muted: #6b7a70;
+  --penjing-ink-text-faint: #9aa8a0;
+
+  /* ---- 状态色（仅用于语义状态） ---- */
+  --penjing-state-success: #2d5a3d;
+  --penjing-state-warning: #c9a961;
+  --penjing-state-error: #b8423a;
+  --penjing-state-info: #3d6b50;
+
+  /* ---- 半透明辅助色（用于遮罩、hover、阴影、玻璃态） ----
+     集中管理，避免各组件 className 中硬编码 rgba 值 ---- */
+  --penjing-gold-8: rgba(201, 169, 97, 0.08);
+  --penjing-gold-10: rgba(201, 169, 97, 0.10);
+  --penjing-gold-15: rgba(201, 169, 97, 0.15);
+  --penjing-gold-18: rgba(201, 169, 97, 0.18);
+  --penjing-gold-40: rgba(201, 169, 97, 0.40);
+  --penjing-gold-50: rgba(201, 169, 97, 0.50);
+  --penjing-gold-60: rgba(201, 169, 97, 0.60);
+
+  --penjing-ink-deepest-8: rgba(16, 38, 32, 0.08);
+  --penjing-ink-deepest-35: rgba(16, 38, 32, 0.35);
+  --penjing-ink-deepest-55: rgba(16, 38, 32, 0.55);
+  --penjing-ink-deepest-70: rgba(16, 38, 32, 0.70);
+  --penjing-ink-deepest-85: rgba(16, 38, 32, 0.85);
+
+  --penjing-paper-60: rgba(250, 248, 245, 0.60);
+  --penjing-paper-70: rgba(250, 248, 245, 0.70);
+  --penjing-paper-75: rgba(250, 248, 245, 0.75);
+  --penjing-paper-92: rgba(250, 248, 245, 0.92);
+
+  /* ---- 字体系统 ---- */
+  --penjing-font-serif: var(--font-serif-cn), "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "Cormorant Garamond", serif;
+  --penjing-font-serif-latin: "Cormorant Garamond", "Times New Roman", serif;
+  --penjing-font-sans: var(--font-sans), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", system-ui, sans-serif;
+
+  /* ---- 间距（8pt 网格） ---- */
+  --penjing-space-1: 4px;
+  --penjing-space-2: 8px;
+  --penjing-space-3: 12px;
+  --penjing-space-4: 16px;
+  --penjing-space-5: 24px;
+  --penjing-space-6: 32px;
+  --penjing-space-7: 48px;
+  --penjing-space-8: 80px;
+  --penjing-space-9: 120px;
+
+  /* ---- 圆角（克制，最大 8px） ---- */
+  --penjing-radius-sm: 2px;
+  --penjing-radius-md: 4px;
+  --penjing-radius-lg: 8px;
+  --penjing-radius-full: 9999px;
+
+  /* ---- 阴影 ---- */
+  --penjing-shadow-static: 0 1px 2px rgba(15, 40, 32, 0.04), 0 1px 1px rgba(15, 40, 32, 0.03);
+  --penjing-shadow-hover: 0 4px 8px rgba(15, 40, 32, 0.05), 0 12px 32px -16px rgba(15, 40, 32, 0.08);
+  --penjing-shadow-float: 0 8px 24px -8px rgba(15, 40, 32, 0.18);
+  --penjing-shadow-overlay: 0 24px 60px -20px rgba(15, 40, 32, 0.30);
+  --penjing-shadow-gold: 0 4px 12px -4px var(--penjing-gold-50);
+  --penjing-shadow-gold-strong: 0 4px 12px -4px var(--penjing-gold-60);
+  --penjing-shadow-gold-glow: 0 0 0 3px var(--penjing-gold-15);
+  --penjing-shadow-drawer: 0 0 0 1px var(--penjing-gold-18), 16px 0 40px -8px rgba(0, 0, 0, 0.55), 36px 0 90px -16px rgba(0, 0, 0, 0.40);
+
+  /* ---- 过渡曲线 ---- */
+  --penjing-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --penjing-ease-enter: cubic-bezier(0.3, 0, 0, 1);
+  --penjing-ease-route: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ---- 边框 ---- */
+  --penjing-border-hairline: rgba(26, 58, 46, 0.08);
+  --penjing-border-fine: rgba(26, 58, 46, 0.12);
+  --penjing-border-strong: rgba(26, 58, 46, 0.20);
+  --penjing-border-gold: rgba(201, 169, 97, 0.35);
+
+  /* ============================================
+     向后兼容别名（旧 --color-* / --ease-* / --font-* 命名）
+     现有组件无需改动即可工作；新代码应优先使用 --penjing-* 命名
+     ============================================ */
+  --color-primary: var(--penjing-ink);
+  --color-primary-light: var(--penjing-ink-mid);
+  --color-primary-dark: var(--penjing-ink-deepest);
+  --color-accent: var(--penjing-gold);
+  --color-accent-light: var(--penjing-gold-bright);
+  --color-accent-dark: var(--penjing-gold-deep);
+  --color-background: var(--penjing-paper);
   --color-surface: #ffffff;
+  --color-text: var(--penjing-ink-text);
+  --color-text-light: var(--penjing-ink-text-secondary);
+  --color-text-muted: var(--penjing-ink-text-muted);
+  --ease-soft: var(--penjing-ease-soft);
+  --font-serif: var(--penjing-font-serif);
+  --font-serif-latin: var(--penjing-font-serif-latin);
+  --font-sans: var(--penjing-font-sans);
 
-  /* 文字
-     可访问性：对比度对齐 WCAG AA
-     - text (#2c2c2c) on background (#faf8f5) ≈ 12.6:1 ✓ AAA
-     - text-light (#5f5f5f) on background ≈ 5.4:1 ✓ AA 小文本
-     - text-muted (#6b6b6b) on background ≈ 4.7:1 ✓ AA 小文本
-  */
-  --color-text: #2c2c2c;
-  --color-text-light: #5f5f5f;
-  --color-text-muted: #6b6b6b;
-
-  /* 字体：中文衬线优先，回退到拉丁衬线，体现盆景东方韵味 */
-  --font-serif: var(--font-serif-cn), 'Cormorant Garamond', 'Noto Serif SC', serif;
-  --font-serif-latin: 'Cormorant Garamond', serif;
-  --font-sans: var(--font-sans), 'Noto Sans SC', system-ui, sans-serif;
-
-  /* 过渡曲线 */
-  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  /* ============================================
+     shadcn/ui 语义别名层（为后续接入做准备）
+     ============================================ */
+  --penjing-background: var(--penjing-paper);
+  --penjing-foreground: var(--penjing-ink-text);
+  --penjing-card: #ffffff;
+  --penjing-card-foreground: var(--penjing-ink-text);
+  --penjing-popover: #ffffff;
+  --penjing-popover-foreground: var(--penjing-ink-text);
+  --penjing-primary: var(--penjing-ink);
+  --penjing-primary-foreground: var(--penjing-paper);
+  --penjing-secondary: var(--penjing-paper-warm);
+  --penjing-secondary-foreground: var(--penjing-ink-text);
+  --penjing-muted: var(--penjing-paper-aged);
+  --penjing-muted-foreground: var(--penjing-ink-text-muted);
+  --penjing-accent: var(--penjing-gold);
+  --penjing-accent-foreground: var(--penjing-ink-deepest);
+  --penjing-destructive: var(--penjing-state-error);
+  --penjing-destructive-foreground: var(--penjing-paper);
+  --penjing-border: var(--penjing-border-fine);
+  --penjing-input: var(--penjing-border-strong);
+  --penjing-ring: var(--penjing-gold);
+  --penjing-radius: var(--penjing-radius-md);
 }
 
 /* ============================================
@@ -50,38 +161,38 @@
   }
 
   body {
-    background-color: var(--color-background);
-    color: var(--color-text);
-    font-family: var(--font-sans);
+    background-color: var(--penjing-paper);
+    color: var(--penjing-ink-text);
+    font-family: var(--penjing-font-sans);
     line-height: 1.6;
     overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-serif);
-    font-weight: 500;
-    letter-spacing: 0.01em;
+    font-family: var(--penjing-font-serif);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
   }
 
-  /* 金色文字辅助类 */
+  /* 金色文字辅助类（保留旧名） */
   .text-accent {
-    color: var(--color-accent);
+    color: var(--penjing-gold);
   }
 
-  /* 衬线标题 */
+  /* 衬线标题（保留旧名） */
   .font-serif {
-    font-family: var(--font-serif);
+    font-family: var(--penjing-font-serif);
   }
 
   /* ============================================
      可访问性：全局键盘焦点样式（WCAG 2.4.7）
      ============================================ */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--penjing-gold);
     outline-offset: 2px;
   }
 
-  /* 移除鼠标点击时的焦点环，仅保留键盘聚焦时的可见焦点 */
   :focus:not(:focus-visible) {
     outline: none;
   }
@@ -93,8 +204,8 @@
     left: 0;
     z-index: 100;
     padding: 0.75rem 1.5rem;
-    background-color: var(--color-primary);
-    color: var(--color-background);
+    background-color: var(--penjing-ink);
+    color: var(--penjing-paper);
     text-decoration: none;
     font-size: 0.875rem;
     transition: top 0.2s ease;
@@ -115,6 +226,18 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+  }
+
+  /* JS 可用性安全网：无 JS 时渐入元素直接可见 */
+  html:not(.has-js) [data-reveal],
+  html:not(.has-js) [data-section-reveal],
+  html:not(.has-js) .animate-fade-in-up,
+  html:not(.has-js) .animate-ink-spread,
+  html:not(.has-js) .animate-scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    filter: none !important;
   }
 }
 
@@ -141,76 +264,624 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-background);
+  background: var(--penjing-paper);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-primary-light);
+  background: var(--penjing-ink-mid);
   border-radius: 4px;
   transition: background 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
+  background: var(--penjing-ink);
 }
 
 /* 管理后台滚动条 */
 .admin-scroll ::-webkit-scrollbar-thumb {
-  background: var(--color-accent);
+  background: var(--penjing-gold);
+}
+
+/* ============================================
+   排版工具类（与设计稿一致）
+   ============================================ */
+@layer components {
+  .display-hero {
+    font-family: var(--penjing-font-serif);
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .display-section {
+    font-family: var(--penjing-font-serif);
+    font-size: clamp(32px, 4vw, 56px);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .display-card {
+    font-family: var(--penjing-font-serif);
+    font-size: clamp(20px, 1.6vw, 24px);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+
+  .eyebrow-label {
+    font-family: var(--penjing-font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--penjing-gold-deep);
+  }
+
+  .catalog-number {
+    font-family: var(--penjing-font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--penjing-gold-muted);
+  }
+
+  .body-large {
+    font-family: var(--penjing-font-sans);
+    font-size: 18px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  .body-base {
+    font-family: var(--penjing-font-sans);
+    font-size: 15px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  .body-caption {
+    font-family: var(--penjing-font-sans);
+    font-size: 13px;
+    line-height: 1.55;
+    font-weight: 400;
+    color: var(--penjing-ink-text-muted);
+  }
+}
+
+/* ============================================
+   章节背景工具
+   ============================================ */
+@layer components {
+  .section-paper {
+    background-color: var(--penjing-paper);
+  }
+
+  .section-warm {
+    background-color: var(--penjing-paper-warm);
+  }
+
+  .section-aged {
+    background-color: var(--penjing-paper-aged);
+  }
+
+  /* 深色章节使用 ink-deep 而非 ink-deepest，降低与浅色章节的亮度差 */
+  .section-ink {
+    background-color: var(--penjing-ink-deep);
+    color: var(--penjing-paper);
+  }
+
+  .section-ink-deep {
+    background-color: var(--penjing-ink-deepest);
+    color: var(--penjing-paper);
+  }
+}
+
+/* ============================================
+   装饰元素
+   ============================================ */
+@layer components {
+  .gold-line {
+    display: inline-block;
+    width: 40px;
+    height: 1px;
+    background: var(--penjing-gold);
+    vertical-align: middle;
+  }
+
+  .gold-line-grow {
+    display: inline-block;
+    width: 40px;
+    height: 1px;
+    background: var(--penjing-gold);
+    vertical-align: middle;
+    transform-origin: left;
+    animation: branch-grow 0.8s var(--penjing-ease-soft) forwards;
+  }
+
+  .eyebrow-with-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-family: var(--penjing-font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--penjing-gold-deep);
+  }
+
+  .eyebrow-with-line::before {
+    content: "";
+    display: inline-block;
+    width: 40px;
+    height: 1px;
+    background: var(--penjing-gold);
+  }
+
+  /* 朱砂印章 */
+  .seal-cinnabar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--penjing-state-error);
+    color: var(--penjing-paper);
+    font-family: var(--penjing-font-serif);
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    border: 1px solid #8a322c;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(184, 66, 58, 0.2);
+    transform: rotate(-3deg);
+    transition: transform 0.4s var(--penjing-ease-soft);
+  }
+
+  .seal-cinnabar:hover {
+    transform: rotate(0deg) scale(1.04);
+  }
+
+  /* 金色印章（与旧 .seal-stamp 等价，新增命名） */
+  .seal-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--penjing-gold);
+    color: var(--penjing-ink-deepest);
+    font-family: var(--penjing-font-serif);
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    border: 1px solid var(--penjing-gold-deep);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.15), 0 1px 2px rgba(168, 137, 63, 0.2);
+    transform: rotate(-2deg);
+    transition: transform 0.4s var(--penjing-ease-soft);
+  }
+
+  .seal-gold:hover {
+    transform: rotate(0deg) scale(1.04);
+  }
+
+  /* 竖排印章 */
+  .seal-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    padding: 12px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* 纸纹质感（浅色背景） */
+  .texture-paper {
+    background-image:
+      radial-gradient(circle at 25% 25%, rgba(201, 169, 97, 0.015) 1px, transparent 1px),
+      radial-gradient(circle at 75% 75%, rgba(26, 58, 46, 0.015) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* 深色背景纹理（深色章节用） */
+  .texture-ink {
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(201, 169, 97, 0.03) 1px, transparent 1px),
+      radial-gradient(circle at 80% 70%, rgba(45, 90, 61, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
 }
 
 /* ============================================
    通用组件样式
    ============================================ */
 @layer components {
-  /* 容器 */
+  /* 滚动容器隔离：隐藏原生滚动条，配合 useScrollContainment hook
+     实现鼠标 hover 时独立滚动、不冒泡到主页面 */
+  .scroll-containment {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scroll-containment::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 容器：保留旧 .container-luxury 不破坏现有组件 */
   .container-luxury {
     @apply mx-auto w-full max-w-7xl px-6 md:px-10 lg:px-16;
   }
 
-  /* 主按钮：深绿底金边 */
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-none bg-primary px-8 py-3.5 text-sm font-medium tracking-widest text-background uppercase transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary-light;
-    border: 1px solid var(--color-primary);
+  /* 顶部 Header：半透明宣纸底 + backdrop-blur（与设计稿一致） */
+  .penjing-header {
+    background: rgba(250, 248, 245, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
-  .btn-primary:hover {
+  /* 新容器：与设计稿对齐，支持大屏 1440/1600 断点 */
+  .container-penjing {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1280px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  @media (min-width: 768px) {
+    .container-penjing {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-penjing {
+      padding-left: 64px;
+      padding-right: 64px;
+      max-width: 1440px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .container-penjing {
+      max-width: 1600px;
+    }
+  }
+
+  /* ============================================
+     按钮系统（4 类，与设计稿一致）
+     ============================================ */
+
+  /* 主按钮：深墨底（保留旧 .btn-primary，等价于新 .btn-ink） */
+  .btn-primary,
+  .btn-ink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--penjing-ink);
+    color: var(--penjing-paper);
+    padding: 14px 32px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid var(--penjing-ink);
+    cursor: pointer;
+    transition: all 0.5s var(--penjing-ease-soft);
+  }
+
+  .btn-primary:hover,
+  .btn-ink:hover {
+    background: var(--penjing-ink-mid);
+    border-color: var(--penjing-ink-mid);
     transform: translateY(-1px);
-    box-shadow: 0 10px 30px -10px rgba(26, 58, 46, 0.5);
+    box-shadow: var(--penjing-shadow-hover);
   }
 
-  /* 描边按钮：金边 */
-  .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded-none border border-accent bg-transparent px-8 py-3.5 text-sm font-medium tracking-widest text-accent uppercase transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-accent hover:text-primary;
+  /* 金色按钮 */
+  .btn-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--penjing-gold);
+    color: var(--penjing-ink-deepest);
+    padding: 14px 32px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid var(--penjing-gold-deep);
+    cursor: pointer;
+    transition: all 0.5s var(--penjing-ease-soft);
   }
 
-  /* 输入框 */
-  .input-luxury {
-    @apply w-full border-0 border-b border-text-muted/30 bg-transparent py-3 text-text transition-colors duration-300 placeholder:text-text-muted/60 focus:border-accent focus:outline-none focus:ring-0;
+  .btn-gold:hover {
+    background: var(--penjing-gold-bright);
+    border-color: var(--penjing-gold-bright);
+    transform: translateY(-1px);
+    box-shadow: var(--penjing-shadow-hover);
   }
 
-  /* 标签 */
+  /* 描边按钮：金色描边（保留旧 .btn-outline，等价于新 .btn-outline-gold） */
+  .btn-outline,
+  .btn-outline-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--penjing-gold-deep);
+    padding: 14px 32px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid var(--penjing-gold);
+    cursor: pointer;
+    transition: all 0.5s var(--penjing-ease-soft);
+  }
+
+  .btn-outline:hover,
+  .btn-outline-gold:hover {
+    background: var(--penjing-gold);
+    color: var(--penjing-ink-deepest);
+    transform: translateY(-1px);
+  }
+
+  /* 危险按钮 */
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--penjing-state-error);
+    color: var(--penjing-paper);
+    padding: 14px 32px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid var(--penjing-state-error);
+    cursor: pointer;
+    transition: all 0.5s var(--penjing-ease-soft);
+  }
+
+  .btn-danger:hover {
+    background: #a03a33;
+    border-color: #a03a33;
+    transform: translateY(-1px);
+    box-shadow: var(--penjing-shadow-hover);
+  }
+
+  /* 输入框：底线式（保留旧 .input-luxury，等价于新 .input-penjing） */
+  .input-luxury,
+  .input-penjing {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--penjing-border-strong);
+    background: transparent;
+    padding: 12px 0;
+    color: var(--penjing-ink-text);
+    transition: border-color 0.3s var(--penjing-ease-soft);
+  }
+
+  .input-luxury::placeholder,
+  .input-penjing::placeholder {
+    color: var(--penjing-ink-text-faint);
+  }
+
+  .input-luxury:focus,
+  .input-penjing:focus {
+    outline: none;
+    border-bottom-color: var(--penjing-gold);
+  }
+
+  /* 标签（保留旧 .label-luxury） */
   .label-luxury {
-    @apply mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-text-light;
+    @apply mb-2 block text-xs font-medium uppercase tracking-[0.2em];
+    color: var(--penjing-ink-text-secondary);
   }
 
-  /* 章节标题装饰：金色短线 */
+  /* 章节标题装饰：金色短线（保留旧 .section-eyebrow，等价于新 .eyebrow-with-line 的简化版） */
   .section-eyebrow {
-    @apply mb-4 inline-flex items-center gap-3 text-xs font-medium uppercase tracking-[0.3em] text-accent;
+    @apply mb-4 inline-flex items-center gap-3 text-xs font-medium uppercase tracking-[0.3em];
+    color: var(--penjing-gold-deep);
   }
 
   .section-eyebrow::before {
     content: '';
-    @apply h-px w-10 bg-accent;
+    @apply h-px w-10;
+    background: var(--penjing-gold);
   }
 
-  /* 卡片悬浮阴影 */
+  /* 卡片悬浮阴影（保留旧 .card-shadow / .card-shadow-hover，新增 --penjing-shadow-* 别名） */
   .card-shadow {
-    box-shadow: 0 1px 3px rgba(26, 58, 46, 0.04), 0 20px 60px -30px rgba(26, 58, 46, 0.15);
+    box-shadow: var(--penjing-shadow-static);
   }
 
   .card-shadow-hover {
-    box-shadow: 0 4px 8px rgba(26, 58, 46, 0.06), 0 30px 80px -30px rgba(26, 58, 46, 0.25);
+    box-shadow: var(--penjing-shadow-hover);
+  }
+
+  /* 著录卡（藏品详情页专属） */
+  .spec-record {
+    border: 1px solid var(--penjing-border-fine);
+    background: var(--penjing-paper-warm);
+  }
+
+  .spec-record-row {
+    display: flex;
+    align-items: baseline;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--penjing-border-hairline);
+  }
+
+  .spec-record-row:last-child {
+    border-bottom: 0;
+  }
+
+  .spec-record-label {
+    flex-shrink: 0;
+    width: 80px;
+    font-family: var(--penjing-font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--penjing-ink-text-muted);
+  }
+
+  .spec-record-value {
+    font-family: var(--penjing-font-serif);
+    font-size: 15px;
+    color: var(--penjing-ink-text);
+  }
+
+  /* 旧印章样式（保留 .seal-stamp / .seal-square，等价于 .seal-gold） */
+  .seal-stamp {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--penjing-gold);
+    color: var(--penjing-ink-deepest);
+    font-family: var(--penjing-font-serif);
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    border: 1px solid var(--penjing-gold-deep);
+    box-shadow:
+      inset 0 0 0 2px var(--penjing-gold),
+      0 1px 2px rgba(168, 137, 63, 0.2);
+    transform: rotate(-2deg);
+    transition: transform 0.4s var(--penjing-ease-soft);
+  }
+
+  .seal-stamp:hover {
+    transform: rotate(0deg) scale(1.04);
+  }
+
+  .seal-square {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 0.875rem;
+  }
+
+  /* 落款分割线 */
+  .signature-line {
+    position: relative;
+  }
+
+  .signature-line::after {
+    content: '';
+    position: absolute;
+    bottom: -0.5rem;
+    left: 0;
+    width: 2rem;
+    height: 1px;
+    background: var(--penjing-gold);
+  }
+
+  /* 卷轴边框（保留） */
+  .scroll-border {
+    border-top: 1px solid var(--penjing-ink-text-muted);
+    border-bottom: 1px solid var(--penjing-ink-text-muted);
+    position: relative;
+  }
+
+  .scroll-border::before,
+  .scroll-border::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(
+      to bottom,
+      var(--penjing-gold) 0%,
+      var(--penjing-gold-bright) 50%,
+      var(--penjing-gold) 100%
+    );
+    opacity: 0.4;
+  }
+
+  .scroll-border::before {
+    top: -1px;
+  }
+
+  .scroll-border::after {
+    bottom: -1px;
+  }
+}
+
+/* ============================================
+   状态徽章
+   ============================================ */
+@layer components {
+  /* 状态点（呼吸动画） */
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: breathe 2.4s var(--penjing-ease-soft) infinite;
+  }
+
+  .status-dot-success {
+    background: var(--penjing-state-success);
+  }
+
+  .status-dot-warning {
+    background: var(--penjing-state-warning);
+  }
+
+  .status-dot-danger {
+    background: var(--penjing-state-error);
+  }
+
+  /* 状态徽章（业务状态） */
+  .status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--penjing-border-fine);
+  }
+
+  .status-pending {
+    color: var(--penjing-gold-deep);
+    border-color: var(--penjing-border-gold);
+    background: rgba(201, 169, 97, 0.06);
+  }
+
+  .status-replied,
+  .status-onsale,
+  .status-success {
+    color: var(--penjing-state-success);
+    border-color: rgba(45, 90, 61, 0.3);
+    background: rgba(45, 90, 61, 0.06);
+  }
+
+  .status-closed,
+  .status-muted {
+    color: var(--penjing-ink-text-muted);
+    border-color: var(--penjing-border-fine);
+    background: var(--penjing-paper-warm);
+  }
+
+  .status-sold,
+  .status-error {
+    color: var(--penjing-state-error);
+    border-color: rgba(184, 66, 58, 0.3);
+    background: rgba(184, 66, 58, 0.06);
+  }
+
+  .status-inquiry {
+    color: var(--penjing-state-info);
+    border-color: rgba(61, 107, 80, 0.3);
+    background: rgba(61, 107, 80, 0.06);
   }
 }
 
@@ -219,11 +890,11 @@
    ============================================ */
 @layer utilities {
   .transition-luxury {
-    transition: all 0.6s var(--ease-soft);
+    transition: all 0.6s var(--penjing-ease-soft);
   }
 
   .transition-slow {
-    transition: all 0.8s var(--ease-soft);
+    transition: all 0.8s var(--penjing-ease-soft);
   }
 
   /* 文字截断多行 */
@@ -243,153 +914,137 @@
 }
 
 /* ============================================
-   页面切换淡入
+   动效（盆景专属动效语言，6 个关键帧 + transition 驱动渐入）
    ============================================ */
-.page-fade-enter {
-  animation: fadeIn 0.6s var(--ease-soft);
+@keyframes ink-spread {
+  0% { opacity: 0; filter: blur(8px); transform: scale(0.98); }
+  100% { opacity: 1; filter: blur(0); transform: scale(1); }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes scroll-reveal {
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
 }
 
-/* ============================================
-   印章元素 - 盆景东方韵味装饰
-   ============================================ */
-@layer components {
-  /* 朱砂印章 */
-  .seal-stamp {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-accent);
-    color: var(--color-primary-dark);
-    font-family: var(--font-serif);
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    border: 2px solid var(--color-accent-dark);
-    box-shadow:
-      inset 0 0 0 1px var(--color-accent),
-      0 1px 2px rgba(168, 137, 63, 0.2);
-    transform: rotate(-2deg);
-    transition: transform 0.4s var(--ease-soft);
-  }
-
-  .seal-stamp:hover {
-    transform: rotate(0deg) scale(1.02);
-  }
-
-  /* 方形印章（小） */
-  .seal-square {
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 0.875rem;
-  }
-
-  /* 竖排印章（条幅） */
-  .seal-vertical {
-    writing-mode: vertical-rl;
-    text-orientation: upright;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.75rem;
-    line-height: 1.4;
-  }
-
-  /* 落款分割线 */
-  .signature-line {
-    position: relative;
-  }
-
-  .signature-line::after {
-    content: '';
-    position: absolute;
-    bottom: -0.5rem;
-    left: 0;
-    width: 2rem;
-    height: 1px;
-    background: var(--color-accent);
-  }
-
-  /* 纸纹质感背景（细微噪点） */
-  .texture-paper {
-    background-image:
-      radial-gradient(circle at 25% 25%, rgba(201, 169, 97, 0.015) 1px, transparent 1px),
-      radial-gradient(circle at 75% 75%, rgba(26, 58, 46, 0.015) 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
-
-  /* 卷轴边框 */
-  .scroll-border {
-    border-top: 1px solid var(--color-text-muted);
-    border-bottom: 1px solid var(--color-text-muted);
-    position: relative;
-  }
-
-  .scroll-border::before,
-  .scroll-border::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(
-      to bottom,
-      var(--color-accent) 0%,
-      var(--color-accent-light) 50%,
-      var(--color-accent) 100%
-    );
-    opacity: 0.4;
-  }
-
-  .scroll-border::before {
-    top: -1px;
-  }
-
-  .scroll-border::after {
-    bottom: -1px;
-  }
+@keyframes branch-grow {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
 }
 
-/* ============================================
-   状态徽章 - 盆景状态标识
-   ============================================ */
-@layer components {
-  /* 状态点（呼吸动画） */
-  .status-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    animation: breathe 2.4s var(--ease-soft) infinite;
-  }
-
-  .status-dot-success {
-    background: var(--color-primary-light);
-  }
-
-  .status-dot-warning {
-    background: var(--color-accent);
-  }
-
-  .status-dot-danger {
-    background: #c0392b;
-  }
+@keyframes fade-in-up {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes breathe {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes slow-zoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-ink-spread { animation: ink-spread 1s var(--penjing-ease-soft) forwards; }
+.animate-scroll-reveal { animation: scroll-reveal 1.2s var(--penjing-ease-soft) forwards; }
+.animate-branch-grow { animation: branch-grow 0.8s var(--penjing-ease-soft) forwards; }
+.animate-fade-in-up { animation: fade-in-up 0.8s var(--penjing-ease-soft) forwards; }
+.animate-breathe { animation: breathe 2.4s var(--penjing-ease-soft) infinite; }
+.animate-slow-zoom { animation: slow-zoom 20s ease-in-out infinite alternate; }
+
+/* ============================================
+   页面切换淡入
+   ============================================ */
+.page-fade-enter {
+  animation: fadeIn 0.6s var(--penjing-ease-soft);
+}
+
+/* ============================================
+   transition 驱动的滚动渐入框架
+   用法：
+   - <div data-reveal="fade-up">...</div> 默认 opacity:0 + translateY
+   - <div data-reveal="scale">...</div> 默认 opacity:0 + scale
+   - <div data-section-reveal>...</div> 章节级 1.2s transform+opacity
+   - 进入视口时由 JS 添加 .is-visible 类触发 transition
+   - 支持 .delay-1 ~ .delay-6 错落延迟（0.1s ~ 0.6s）
+   ============================================ */
+[data-reveal] {
+  opacity: 0;
+  transition: transform 0.9s var(--penjing-ease-soft),
+              opacity 0.9s var(--penjing-ease-soft),
+              filter 0.9s var(--penjing-ease-soft);
+  will-change: transform, opacity;
+}
+
+[data-reveal="fade-up"] { transform: translateY(24px); }
+[data-reveal="fade-down"] { transform: translateY(-24px); }
+[data-reveal="fade-left"] { transform: translateX(24px); }
+[data-reveal="fade-right"] { transform: translateX(-24px); }
+[data-reveal="scale"] { transform: scale(0.95); }
+[data-reveal="blur"] { filter: blur(8px); }
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+[data-section-reveal] {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: transform 1.2s var(--penjing-ease-soft),
+              opacity 1.2s var(--penjing-ease-soft);
+  will-change: transform, opacity;
+}
+
+[data-section-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-reveal].delay-1 { transition-delay: 0.1s; }
+[data-reveal].delay-2 { transition-delay: 0.2s; }
+[data-reveal].delay-3 { transition-delay: 0.3s; }
+[data-reveal].delay-4 { transition-delay: 0.4s; }
+[data-reveal].delay-5 { transition-delay: 0.5s; }
+[data-reveal].delay-6 { transition-delay: 0.6s; }
+
+/* ============================================
+   滚动进度条（顶部 2px 金色）
+   ============================================ */
+.scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--penjing-gold);
+  z-index: 9999;
+  transform-origin: left;
+  transition: transform 0.1s linear;
+}
+
+/* ============================================
+   Lenis 平滑滚动样式
+   ============================================ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
 }

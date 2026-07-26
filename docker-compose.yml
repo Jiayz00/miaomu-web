@@ -136,9 +136,9 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - backend_sentinel:/app/data
-    # 映射端口到宿主机，供 Caddy 反向代理访问
+    # 映射端口到宿主机，仅允许本机 Caddy 反向代理访问
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     networks:
       - penjing-network
     # 资源限制：NestJS + Prisma + Sharp（图片压缩），预留 256MB / 1 核
@@ -179,9 +179,9 @@ services:
       # Docker 内部网络：frontend 容器通过 service name "backend" 访问后端
       # 客户端浏览器仍使用 NEXT_PUBLIC_API_URL（相对路径，由 Caddy 代理）
       BACKEND_URL: "http://backend:4000/api/v1"
-    # 映射端口到宿主机，供 Caddy 反向代理访问
+    # 映射端口到宿主机，仅允许本机 Caddy 反向代理访问
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       - penjing-network
     # 资源限制：Next.js standalone 模式，内存占用较低

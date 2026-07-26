@@ -43,6 +43,9 @@ Dockerfile
 README.md
 *.md
 
+# ===== 设计稿原始资源（已迁移到 public/images/，生产镜像不需要） =====
+public/design-assets
+
 # ===== 操作系统文件 =====
 .DS_Store
 Thumbs.db

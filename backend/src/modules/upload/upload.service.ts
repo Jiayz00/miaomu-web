@@ -9,6 +9,7 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { MAX_FILE_SIZE, MAX_FILES_PER_REQUEST, MAX_VIDEO_SIZE } from './upload.constants';
+import { SiteAssetService } from '../settings/settings.service';
 
 /**
  * 文件上传服务
@@ -51,7 +52,10 @@ export class UploadService {
     { mime: 'video/webm', offset: 0, bytes: [0x1a, 0x45, 0xdf, 0xa3] },
   ];
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly siteAssetService: SiteAssetService,
+  ) {
     this.uploadDir = this.configService.get<string>('upload.dir') || './uploads';
     this.allowedMimeTypes = this.configService.get<string[]>('upload.allowedMimeTypes') || [
       'image/jpeg',
@@ -67,16 +71,43 @@ export class UploadService {
 
   /**
    * 单图上传
-   * 返回访问 URL
+   * 返回访问 URL + 文件名 + 图片维度
+   * 上传成功后同步写入 SiteAsset 表持久化元数据（用于图集面板）
    */
-  async uploadSingle(file: Express.Multer.File): Promise<{ url: string; filename: string }> {
+  async uploadSingle(file: Express.Multer.File): Promise<{
+    url: string;
+    filename: string;
+    width: number | null;
+    height: number | null;
+    assetId: number | null;
+  }> {
     this.validateFile(file);
 
-    const filename = await this.processImage(file);
+    const { filename, width, height } = await this.processImage(file);
     const url = `/uploads/${filename}`;
 
-    this.logger.log(`✅ 图片上传成功: ${filename} (${file.originalname})`);
-    return { url, filename };
+    // 持久化到 SiteAsset 表（幂等：URL 已存在则更新元数据）
+    let assetId: number | null = null;
+    try {
+      const asset = await this.siteAssetService.createFromUpload({
+        url,
+        filename,
+        mimeType: 'image/jpeg', // processImage 统一输出 jpeg
+        size: fs.statSync(path.resolve(this.uploadDir, filename)).size,
+        width,
+        height,
+        category: 'image',
+      });
+      assetId = asset.id;
+    } catch (err) {
+      // 元数据持久化失败不阻塞上传，仅记录日志
+      this.logger.error(
+        `SiteAsset 持久化失败（不影响上传结果）: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+
+    this.logger.log(`✅ 图片上传成功: ${filename} (${file.originalname}) ${width}x${height}`);
+    return { url, filename, width, height, assetId };
   }
 
   /**
@@ -84,7 +115,15 @@ export class UploadService {
    */
   async uploadMultiple(
     files: Express.Multer.File[],
-  ): Promise<{ urls: Array<{ url: string; filename: string }> }> {
+  ): Promise<{
+    urls: Array<{
+      url: string;
+      filename: string;
+      width: number | null;
+      height: number | null;
+      assetId: number | null;
+    }>;
+  }> {
     if (!files || files.length === 0) {
       throw new BadRequestException('请至少上传一张图片');
     }
@@ -95,8 +134,29 @@ export class UploadService {
     const results = await Promise.all(
       files.map(async (file) => {
         this.validateFile(file);
-        const filename = await this.processImage(file);
-        return { url: `/uploads/${filename}`, filename };
+        const { filename, width, height } = await this.processImage(file);
+        const url = `/uploads/${filename}`;
+
+        // 持久化元数据
+        let assetId: number | null = null;
+        try {
+          const asset = await this.siteAssetService.createFromUpload({
+            url,
+            filename,
+            mimeType: 'image/jpeg',
+            size: fs.statSync(path.resolve(this.uploadDir, filename)).size,
+            width,
+            height,
+            category: 'image',
+          });
+          assetId = asset.id;
+        } catch (err) {
+          this.logger.error(
+            `SiteAsset 持久化失败（不影响上传结果）: ${err instanceof Error ? err.message : 'unknown'}`,
+          );
+        }
+
+        return { url, filename, width, height, assetId };
       }),
     );
 
@@ -111,7 +171,11 @@ export class UploadService {
    * - magic bytes 二次校验
    * - 保留原始扩展名（白名单内）
    */
-  async uploadVideo(file: Express.Multer.File): Promise<{ url: string; filename: string }> {
+  async uploadVideo(file: Express.Multer.File): Promise<{
+    url: string;
+    filename: string;
+    assetId: number | null;
+  }> {
     if (!file) {
       throw new BadRequestException('文件不能为空');
     }
@@ -152,8 +216,27 @@ export class UploadService {
     const filepath = path.resolve(this.uploadDir, filename);
     await fs.promises.writeFile(filepath, file.buffer);
 
+    // 持久化到 SiteAsset 表
+    // 注意：视频 duration 需要 ffprobe 解析，此处暂设为 null
+    let assetId: number | null = null;
+    try {
+      const asset = await this.siteAssetService.createFromUpload({
+        url: `/uploads/${filename}`,
+        filename,
+        mimeType: file.mimetype,
+        size: file.size,
+        duration: null,
+        category: 'video',
+      });
+      assetId = asset.id;
+    } catch (err) {
+      this.logger.error(
+        `SiteAsset 持久化失败（不影响上传结果）: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+
     this.logger.log(`✅ 视频上传成功: ${filename} (${file.originalname}, ${file.size} bytes)`);
-    return { url: `/uploads/${filename}`, filename };
+    return { url: `/uploads/${filename}`, filename, assetId };
   }
 
   /**
@@ -216,8 +299,14 @@ export class UploadService {
    * 3. 重采样至 1200px（保持比例）并输出 JPEG
    *
    * 文件名统一为 `${uuid}.jpg`，完全忽略原始扩展名
+   *
+   * 返回值包含原始图片维度（用于 SiteAsset 元数据持久化）
    */
-  private async processImage(file: Express.Multer.File): Promise<string> {
+  private async processImage(file: Express.Multer.File): Promise<{
+    filename: string;
+    width: number;
+    height: number;
+  }> {
     // 1. magic bytes 二次校验：Sharp 仅能解析真实图片
     let metadata: sharp.Metadata;
     try {
@@ -277,7 +366,7 @@ export class UploadService {
       throw new BadRequestException('图片处理失败');
     }
 
-    return filename;
+    return { filename, width, height };
   }
 
   private ensureUploadDir(): void {

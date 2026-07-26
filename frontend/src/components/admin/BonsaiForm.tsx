@@ -375,15 +375,15 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
   };
 
   // 表单字段组件已移至模块顶层（避免每次渲染创建新组件类型导致 input 失焦）
-
+  // 统一输入样式：底线式 + 金色聚焦，与设计系统的 input-penjing 风格一致
   const inputClass =
-    'w-full border border-text-muted/20 bg-surface px-4 py-2.5 text-text transition-colors focus:border-accent focus:outline-none';
+    'w-full border border-[var(--penjing-border-fine)] bg-paper px-4 py-2.5 font-sans text-sm text-ink-text transition-colors placeholder:text-ink-text-faint focus:border-gold focus:outline-none';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {error && (
         <div
-          className="border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600"
+          className="border border-state-error/40 bg-state-error/5 px-4 py-3 font-sans text-sm text-state-error"
           role="alert"
         >
           {error}
@@ -391,8 +391,11 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
       )}
 
       {/* 基本信息 */}
-      <div className="border border-text-muted/15 bg-surface p-6">
-        <h3 className="mb-6 font-serif text-xl text-primary">基本信息</h3>
+      <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="h-px w-8 bg-gold" aria-hidden="true" />
+          <h3 className="display-card text-ink">基本信息</h3>
+        </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field label="盆景名称" htmlFor="bonsai-name" className="sm:col-span-2">
             <input
@@ -450,11 +453,14 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             </datalist>
           </Field>
         </div>
-      </div>
+      </section>
 
       {/* 规格信息 */}
-      <div className="border border-text-muted/15 bg-surface p-6">
-        <h3 className="mb-6 font-serif text-xl text-primary">规格信息</h3>
+      <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="h-px w-8 bg-gold" aria-hidden="true" />
+          <h3 className="display-card text-ink">规格信息</h3>
+        </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="价格 (¥)" htmlFor="bonsai-price" required>
             <input
@@ -541,10 +547,10 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             onClick={() => updateField('isFeatured', !form.isFeatured)}
             aria-pressed={form.isFeatured}
             className={cn(
-              'flex items-center gap-2 border px-4 py-2 text-sm transition-colors',
+              'flex items-center gap-2 border px-4 py-2 font-sans text-sm transition-colors',
               form.isFeatured
-                ? 'border-accent bg-accent text-primary-dark'
-                : 'border-text-muted/30 text-text-light'
+                ? 'border-gold bg-gold text-ink-deepest'
+                : 'border-[var(--penjing-border-fine)] text-ink-text-secondary hover:border-gold',
             )}
           >
             <Star
@@ -556,11 +562,14 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             {form.isFeatured ? '已设为精选' : '设为精选'}
           </button>
         </div>
-      </div>
+      </section>
 
       {/* 图片上传 */}
-      <div className="border border-text-muted/15 bg-surface p-6">
-        <h3 className="mb-6 font-serif text-xl text-primary">盆景图片</h3>
+      <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="h-px w-8 bg-gold" aria-hidden="true" />
+          <h3 className="display-card text-ink">盆景图片</h3>
+        </div>
 
         {/* 拖拽上传区（WCAG 2.1.1：使用 button 而非 div onClick，保证键盘可访问） */}
         <button
@@ -576,19 +585,19 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
           className={cn(
             'flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors',
             dragOver
-              ? 'border-accent bg-accent/5'
-              : 'border-text-muted/30 hover:border-accent/50'
+              ? 'border-gold bg-gold/5'
+              : 'border-[var(--penjing-border-fine)] hover:border-gold/60',
           )}
         >
           {uploading ? (
-            <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
+            <Loader2 className="h-8 w-8 animate-spin text-gold" aria-hidden="true" />
           ) : (
-            <Upload className="h-8 w-8 text-text-muted" strokeWidth={1} aria-hidden="true" />
+            <Upload className="h-8 w-8 text-ink-text-muted" strokeWidth={1} aria-hidden="true" />
           )}
-          <p className="text-sm text-text-light">
+          <p className="font-sans text-sm text-ink-text-secondary">
             {uploading ? '上传中…' : '点击或拖拽图片到此处上传'}
           </p>
-          <p className="text-xs text-text-muted">支持多张图片，第一张默认为主图</p>
+          <p className="body-caption">支持多张图片，第一张默认为主图</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -606,7 +615,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             {images.map((img, i) => (
               <div
                 key={i}
-                className="group relative aspect-square overflow-hidden border border-text-muted/20"
+                className="group relative aspect-square overflow-hidden border border-[var(--penjing-border-fine)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -616,12 +625,12 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                 />
                 {/* 主图标识 */}
                 {img.isMain && (
-                  <div className="absolute left-2 top-2 bg-accent px-2 py-0.5 text-[10px] uppercase tracking-wider text-primary-dark">
+                  <div className="absolute left-2 top-2 bg-gold px-2 py-0.5 font-sans text-[10px] uppercase tracking-wider text-ink-deepest">
                     主图
                   </div>
                 )}
                 {/* 操作按钮（WCAG 2.5.5：触摸目标提到 36x36，表格场景受限） */}
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary-dark/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-ink-deep/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                   {!img.isMain && (
                     <button
                       type="button"
@@ -629,7 +638,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                         e.stopPropagation();
                         setMain(i);
                       }}
-                      className="flex h-9 w-9 items-center justify-center bg-accent text-primary-dark"
+                      className="flex h-9 w-9 items-center justify-center bg-gold text-ink-deepest"
                       aria-label={`将第 ${i + 1} 张图片设为主图`}
                     >
                       <Star className="h-4 w-4" fill="currentColor" aria-hidden="true" />
@@ -641,7 +650,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                       e.stopPropagation();
                       removeImage(i);
                     }}
-                    className="flex h-9 w-9 items-center justify-center bg-background text-primary"
+                    className="flex h-9 w-9 items-center justify-center bg-paper text-ink"
                     aria-label={`删除第 ${i + 1} 张图片`}
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
@@ -651,22 +660,23 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* 视频上传（可选） */}
-      <div className="border border-text-muted/15 bg-surface p-6">
-        <h3 className="mb-2 font-serif text-xl text-primary">展示视频</h3>
-        <p className="mb-6 text-xs text-text-muted">
-          可选。支持 mp4 / webm / mov，最大 1GB
-        </p>
+      <section className="border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+        <div className="mb-2 flex items-center gap-3">
+          <span className="h-px w-8 bg-gold" aria-hidden="true" />
+          <h3 className="display-card text-ink">展示视频</h3>
+        </div>
+        <p className="mb-6 body-caption pl-11">可选。支持 mp4 / webm / mov，最大 1GB</p>
 
         {videoUrl ? (
           <div className="space-y-4">
-            <div className="relative overflow-hidden border border-text-muted/20">
+            <div className="relative overflow-hidden border border-[var(--penjing-border-fine)]">
               <video
                 src={videoUrl}
                 controls
-                className="aspect-video w-full bg-primary-dark"
+                className="aspect-video w-full bg-ink-deep"
                 preload="metadata"
               >
                 您的浏览器不支持视频播放。
@@ -677,7 +687,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                 type="button"
                 onClick={() => videoInputRef.current?.click()}
                 disabled={videoUploading}
-                className="border border-text-muted/30 px-4 py-2 text-xs uppercase tracking-[0.2em] text-text-light transition-colors hover:border-text-light disabled:opacity-50"
+                className="border border-[var(--penjing-border-fine)] px-4 py-2 font-sans text-xs uppercase tracking-[0.2em] text-ink-text-secondary transition-colors hover:border-gold hover:text-gold-deep disabled:opacity-50"
               >
                 {videoUploading ? '上传中…' : '替换视频'}
               </button>
@@ -685,7 +695,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
                 type="button"
                 onClick={removeVideo}
                 disabled={videoUploading}
-                className="flex items-center gap-1.5 border border-red-300 px-4 py-2 text-xs uppercase tracking-[0.2em] text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                className="flex items-center gap-1.5 border border-state-error/40 px-4 py-2 font-sans text-xs uppercase tracking-[0.2em] text-state-error transition-colors hover:bg-state-error/5 disabled:opacity-50"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
                 移除视频
@@ -708,18 +718,18 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             aria-label="上传盆景展示视频"
             className={cn(
               'flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-              'border-text-muted/30 hover:border-accent/50'
+              'border-[var(--penjing-border-fine)] hover:border-gold/60',
             )}
           >
             {videoUploading ? (
-              <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
+              <Loader2 className="h-8 w-8 animate-spin text-gold" aria-hidden="true" />
             ) : (
-              <Video className="h-8 w-8 text-text-muted" strokeWidth={1} aria-hidden="true" />
+              <Video className="h-8 w-8 text-ink-text-muted" strokeWidth={1} aria-hidden="true" />
             )}
-            <p className="text-sm text-text-light">
+            <p className="font-sans text-sm text-ink-text-secondary">
               {videoUploading ? '上传中…' : '点击上传展示视频'}
             </p>
-            <p className="text-xs text-text-muted">mp4 / webm / mov，最大 1GB</p>
+            <p className="body-caption">mp4 / webm / mov，最大 1GB</p>
             <input
               ref={videoInputRef}
               type="file"
@@ -730,14 +740,14 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
             />
           </button>
         )}
-      </div>
+      </section>
 
       {/* 提交按钮 */}
       <div className="flex items-center gap-4">
         <button
           type="submit"
           disabled={saving || uploading || videoUploading}
-          className="flex items-center gap-2 bg-primary px-8 py-3 text-sm uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light disabled:opacity-50"
+          className="btn-gold disabled:opacity-50"
         >
           {saving
             ? '保存中…'
@@ -752,7 +762,7 @@ export function BonsaiForm({ initialData }: BonsaiFormProps) {
         <button
           type="button"
           onClick={() => router.push('/admin/bonsais')}
-          className="border border-text-muted/30 px-8 py-3 text-sm uppercase tracking-[0.2em] text-text-light transition-colors hover:border-text-light"
+          className="btn-outline-gold"
         >
           取消
         </button>

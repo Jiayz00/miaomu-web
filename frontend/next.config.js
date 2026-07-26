@@ -7,12 +7,17 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'framer-motion', 'recharts'],
   },
   images: {
-    // 生产环境禁用 next/image 图片优化器：
-    // 1. 服务器资源有限（1 核 CPU），Sharp 优化会消耗大量 CPU
-    // 2. 上传图片由后端 Sharp 压缩后存储，已优化过一次
-    // 3. 后端静态服务（/uploads/）通过 Caddy 直接代理，相对路径可正常访问
-    // 4. 避免相对路径 /uploads/xxx.jpg 在 next/image 优化器中返回 400
+    // 当前策略：unoptimized=true
+    // - 服务器仅 1 核 CPU，开启 Next.js 内置 Sharp 优化器会显著消耗算力
+    // - 后端 upload.service.ts 已用 Sharp 将图片压缩为 1200px/80 质量 JPEG，
+    //   再由 Caddy 直接代理 /uploads/，因此前端直接用原图即可
+    // - 若未来接入 CDN 或升级服务器，可将 unoptimized 改为 false 并配置 loader
     unoptimized: true,
+    // 预置 sizes，确保各组件 `sizes` 属性与设备像素密度对齐
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // 默认格式：为将来启用优化器时优先使用 webp 做准备
+    formats: ['image/webp'],
     // 安全：仅允许已知图片域名，防止 SSRF 与防盗链绕过
     // - 后端域名（用户上传的盆景图、头像）
     // - picsum.photos（种子数据占位图，绕开 ORB）

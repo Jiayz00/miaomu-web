@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -51,10 +52,63 @@ export class CreateBonsaiDto {
   @Length(1, 120)
   slug!: string;
 
+  @ApiPropertyOptional({ description: '藏品编号', example: 'PJ-2024-001' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  catalogNumber?: string;
+
   @ApiProperty({ description: '描述' })
   @IsString()
   @MaxLength(5000)
   description!: string;
+
+  @ApiPropertyOptional({ description: '艺术描述/鉴赏' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  artisticDescription?: string;
+
+  @ApiPropertyOptional({ description: '年代/创作时期', example: '当代' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  era?: string;
+
+  @ApiPropertyOptional({ description: '材质/树种', example: '黑松' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  material?: string;
+
+  @ApiPropertyOptional({ description: '盆器描述' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  potDescription?: string;
+
+  @ApiPropertyOptional({ description: '冠幅(cm)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  canopyWidth?: number;
+
+  @ApiPropertyOptional({ description: '整体尺寸描述', example: '高65cm×宽80cm' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  dimensions?: string;
+
+  @ApiPropertyOptional({ description: '来源/传承' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  provenance?: string;
+
+  @ApiPropertyOptional({ description: '参展记录 JSON 数组', example: [{ name: '苏州盆景艺术展', year: 2024, location: '苏州' }] })
+  @IsOptional()
+  exhibitions?: Array<{ name: string; year?: number; location?: string }>;
 
   @ApiProperty({ description: '价格', example: 1280.0 })
   @Type(() => Number)
@@ -106,6 +160,7 @@ export class CreateBonsaiDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @Matches(/^(https?:\/\/|\/uploads\/).+$/, { message: '视频 URL 必须是 http(s) 链接或 /uploads/ 站内路径' })
   video?: string;
 
   @ApiProperty({ description: '分类 ID' })
