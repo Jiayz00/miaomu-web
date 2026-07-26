@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   ParseIntPipe,
   Post,
@@ -20,6 +21,11 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 
 /**
+ * 公开只读分类接口缓存头
+ */
+const CACHE_PUBLIC_CATEGORY = 'public, max-age=60, s-maxage=120, stale-while-revalidate=300';
+
+/**
  * 分类公开控制器
  */
 @ApiTags('分类-公开')
@@ -29,6 +35,7 @@ export class CategoriesPublicController {
 
   @Public()
   @Get()
+  @Header('Cache-Control', CACHE_PUBLIC_CATEGORY)
   @ApiOperation({ summary: '分类列表' })
   findAll() {
     return this.categoriesService.findPublicAll();
@@ -36,6 +43,7 @@ export class CategoriesPublicController {
 
   @Public()
   @Get(':slug')
+  @Header('Cache-Control', CACHE_PUBLIC_CATEGORY)
   @ApiOperation({ summary: '分类详情（含盆景列表）' })
   findBySlug(@Param('slug') slug: string) {
     return this.categoriesService.findPublicBySlug(slug);

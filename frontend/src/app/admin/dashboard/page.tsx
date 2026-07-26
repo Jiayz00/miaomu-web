@@ -69,15 +69,20 @@ const CategoryDistChart = dynamic(
 function ChartSkeletonLazy() {
   return (
     <div className="flex h-[280px] w-full items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-text-muted">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-        <span className="text-xs uppercase tracking-[0.2em]">图表加载中</span>
+      <div className="flex flex-col items-center gap-3 text-ink-text-muted">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+        <span className="font-sans text-[11px] uppercase tracking-[0.3em]">
+          图表加载中
+        </span>
       </div>
     </div>
   );
 }
 
-// 数字动画卡片
+// 数字动画卡片：东方雅致风格的指标卡
+// - 顶部金色 eyebrow 标签 + 大号 serif 数字
+// - 右上角金色图标徽章
+// - 趋势指示：正向 ink-soft / 负向 state-error
 function StatCard({
   icon: Icon,
   label,
@@ -100,38 +105,51 @@ function StatCard({
   }, [value]);
 
   return (
-    <div className="border border-text-muted/15 bg-surface p-6 transition-shadow hover:shadow-lg">
+    <div className="group relative overflow-hidden border border-[var(--penjing-border-fine)] bg-paper-warm p-6 transition-all duration-500 hover:border-[var(--penjing-border-gold)] hover:shadow-[var(--penjing-shadow-hover)]">
+      {/* 顶部金色短线装饰 */}
+      <span
+        className="absolute left-0 top-0 h-px w-12 bg-gold transition-all duration-500 group-hover:w-16"
+        aria-hidden="true"
+      />
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-            {label}
-          </p>
-          <p ref={ref} className="mt-3 font-serif text-4xl text-primary">
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow-label">{label}</p>
+          <p
+            ref={ref}
+            className="mt-3 font-serif text-[40px] leading-none text-ink"
+          >
             {display.toLocaleString('zh-CN')}
-            {suffix && <span className="ml-1 text-base text-text-light">{suffix}</span>}
+            {suffix && (
+              <span className="ml-1 font-sans text-sm text-ink-text-secondary">
+                {suffix}
+              </span>
+            )}
           </p>
           {trend && (
             <p
               className={cn(
-                'mt-2 flex items-center gap-1 text-xs',
-                trend.value >= 0 ? 'text-primary-light' : 'text-red-600'
+                'mt-3 flex items-center gap-1 font-sans text-xs',
+                trend.value >= 0 ? 'text-ink-soft' : 'text-state-error',
               )}
             >
-              <TrendingUp className="h-3 w-3" strokeWidth={1.5} />
+              <TrendingUp className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
               {trend.value >= 0 ? '+' : ''}
-              {trend.value}% {trend.label}
+              {trend.value} {trend.label}
             </p>
           )}
         </div>
-        <div className="flex h-12 w-12 items-center justify-center bg-primary-dark/5">
-          <Icon className="h-5 w-5 text-accent" strokeWidth={1.5} />
+        <div
+          className="flex h-12 w-12 flex-shrink-0 items-center justify-center border border-[var(--penjing-border-gold)] bg-paper"
+          aria-hidden="true"
+        >
+          <Icon className="h-5 w-5 text-gold-deep" strokeWidth={1.5} />
         </div>
       </div>
     </div>
   );
 }
 
-// 图表卡片容器
+// 图表卡片容器：纸面卡片 + serif 标题 + 金色短线
 function ChartCard({
   title,
   action,
@@ -144,9 +162,20 @@ function ChartCard({
   className?: string;
 }) {
   return (
-    <div className={cn('border border-text-muted/15 bg-surface p-6', className)}>
-      <div className="mb-6 flex items-center justify-between">
-        <h3 className="font-serif text-xl text-primary">{title}</h3>
+    <div
+      className={cn(
+        'border border-[var(--penjing-border-fine)] bg-paper-warm p-6',
+        className,
+      )}
+    >
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="h-px w-8 bg-gold"
+            aria-hidden="true"
+          />
+          <h3 className="display-card text-ink">{title}</h3>
+        </div>
         {action}
       </div>
       {children}
@@ -302,36 +331,41 @@ export default function DashboardPage() {
 
   const timeRangePicker = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex gap-1 border border-text-muted/20">
-        {[7, 30, 90].map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() =>
-              setRange((prev) => ({
-                ...prev,
-                type: 'preset',
-                days: d,
-              }))
-            }
-            className={cn(
-              'px-3 py-1 text-xs transition-colors',
-              range.type === 'preset' && range.days === d
-                ? 'bg-primary text-background'
-                : 'text-text-light hover:text-primary'
-            )}
-          >
-            {d} 天
-          </button>
-        ))}
+      <div className="flex border border-[var(--penjing-border-fine)]">
+        {[7, 30, 90].map((d) => {
+          const active = range.type === 'preset' && range.days === d;
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() =>
+                setRange((prev) => ({
+                  ...prev,
+                  type: 'preset',
+                  days: d,
+                }))
+              }
+              aria-pressed={active}
+              className={cn(
+                'px-3 py-1 font-sans text-xs transition-colors',
+                active
+                  ? 'bg-ink text-paper'
+                  : 'text-ink-text-secondary hover:bg-paper/50 hover:text-ink',
+              )}
+            >
+              {d} 天
+            </button>
+          );
+        })}
         <button
           type="button"
           onClick={() => setRange((prev) => ({ ...prev, type: 'custom' }))}
+          aria-pressed={range.type === 'custom'}
           className={cn(
-            'px-3 py-1 text-xs transition-colors',
+            'px-3 py-1 font-sans text-xs transition-colors',
             range.type === 'custom'
-              ? 'bg-primary text-background'
-              : 'text-text-light hover:text-primary'
+              ? 'bg-ink text-paper'
+              : 'text-ink-text-secondary hover:bg-paper/50 hover:text-ink',
           )}
         >
           自定义
@@ -347,10 +381,10 @@ export default function DashboardPage() {
             onChange={(e) =>
               setRange((prev) => ({ ...prev, startDate: e.target.value }))
             }
-            className="border border-text-muted/20 bg-surface px-2 py-1 text-xs text-primary outline-none focus:border-accent"
+            className="border border-[var(--penjing-border-fine)] bg-paper px-2 py-1 font-sans text-xs text-ink-text outline-none focus:border-gold"
             aria-label="开始日期"
           />
-          <span className="text-xs text-text-muted">至</span>
+          <span className="font-sans text-xs text-ink-text-muted">至</span>
           <input
             type="date"
             value={range.endDate}
@@ -358,7 +392,7 @@ export default function DashboardPage() {
             onChange={(e) =>
               setRange((prev) => ({ ...prev, endDate: e.target.value }))
             }
-            className="border border-text-muted/20 bg-surface px-2 py-1 text-xs text-primary outline-none focus:border-accent"
+            className="border border-[var(--penjing-border-fine)] bg-paper px-2 py-1 font-sans text-xs text-ink-text outline-none focus:border-gold"
             aria-label="结束日期"
           />
         </div>
@@ -373,20 +407,25 @@ export default function DashboardPage() {
   const userGrowthList = userGrowth?.list || [];
   const inquiryTrendList = inquiryStats?.trend.list || [];
 
-  // 询价漏斗数据
+  // 询价漏斗数据：使用设计系统配色
   const inquiryFunnel = inquiryStats
     ? [
-        { label: '询价会话', value: inquiryStats.totalCount, color: 'bg-primary' },
-        { label: '管理员回复', value: inquiryStats.adminRepliedCount, color: 'bg-primary-light' },
-        { label: '已处理', value: inquiryStats.processedCount, color: 'bg-accent' },
+        { label: '询价会话', value: inquiryStats.totalCount, color: 'bg-ink' },
+        { label: '管理员回复', value: inquiryStats.adminRepliedCount, color: 'bg-ink-soft' },
+        { label: '已处理', value: inquiryStats.processedCount, color: 'bg-gold' },
       ]
     : [];
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-primary">数据看板</h1>
-        <p className="mt-1 text-sm text-text-muted">平台运营数据总览</p>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="eyebrow-label">运营总览</span>
+          <h1 className="display-section mt-2 text-ink">数据看板</h1>
+          <p className="body-base mt-2 text-ink-text-secondary">
+            平台运营数据总览
+          </p>
+        </div>
       </div>
 
       {/* 指标卡片 */}
@@ -431,48 +470,48 @@ export default function DashboardPage() {
           {(stats?.pendingRooms || 0) > 0 && (
             <Link
               href="/admin/chat"
-              className="flex items-center gap-4 border border-accent/30 bg-accent/5 p-5 transition-colors hover:bg-accent/10"
+              className="flex items-center gap-4 border border-[var(--penjing-border-gold)] bg-paper-warm p-5 transition-all duration-300 hover:border-gold hover:shadow-[var(--penjing-shadow-static)]"
             >
-              <div className="flex h-10 w-10 items-center justify-center bg-accent/20">
-                <Clock className="h-5 w-5 text-accent-dark" strokeWidth={1.5} />
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-[var(--penjing-border-gold)] bg-paper">
+                <Clock className="h-5 w-5 text-gold-deep" strokeWidth={1.5} />
               </div>
-              <div>
-                <p className="text-sm font-medium text-primary">
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-medium text-ink">
                   {stats?.pendingRooms} 个待回复询价
                 </p>
-                <p className="text-xs text-text-muted">点击前往处理</p>
+                <p className="body-caption mt-0.5">点击前往处理</p>
               </div>
             </Link>
           )}
           {(inventory?.lowStockCount || 0) > 0 && (
             <Link
               href="/admin/bonsais"
-              className="flex items-center gap-4 border border-accent/30 bg-accent/5 p-5 transition-colors hover:bg-accent/10"
+              className="flex items-center gap-4 border border-[var(--penjing-border-gold)] bg-paper-warm p-5 transition-all duration-300 hover:border-gold hover:shadow-[var(--penjing-shadow-static)]"
             >
-              <div className="flex h-10 w-10 items-center justify-center bg-accent/20">
-                <AlertTriangle className="h-5 w-5 text-accent-dark" strokeWidth={1.5} />
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-[var(--penjing-border-gold)] bg-paper">
+                <AlertTriangle className="h-5 w-5 text-gold-deep" strokeWidth={1.5} />
               </div>
-              <div>
-                <p className="text-sm font-medium text-primary">
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-medium text-ink">
                   {inventory?.lowStockCount} 个低库存盆景
                 </p>
-                <p className="text-xs text-text-muted">库存 ≤ 2，需补货</p>
+                <p className="body-caption mt-0.5">库存 ≤ 2，需补货</p>
               </div>
             </Link>
           )}
           {(inventory?.outOfStockCount || 0) > 0 && (
             <Link
               href="/admin/bonsais"
-              className="flex items-center gap-4 border border-red-200 bg-red-50 p-5 transition-colors hover:bg-red-100"
+              className="flex items-center gap-4 border border-state-error/30 bg-state-error/5 p-5 transition-all duration-300 hover:border-state-error hover:shadow-[var(--penjing-shadow-static)]"
             >
-              <div className="flex h-10 w-10 items-center justify-center bg-red-100">
-                <PackageX className="h-5 w-5 text-red-600" strokeWidth={1.5} />
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-state-error/30 bg-state-error/10">
+                <PackageX className="h-5 w-5 text-state-error" strokeWidth={1.5} />
               </div>
-              <div>
-                <p className="text-sm font-medium text-primary">
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-medium text-ink">
                   {inventory?.outOfStockCount} 个盆景已售罄
                 </p>
-                <p className="text-xs text-text-muted">库存为 0，请及时处理</p>
+                <p className="body-caption mt-0.5">库存为 0，请及时处理</p>
               </div>
             </Link>
           )}
@@ -528,20 +567,25 @@ export default function DashboardPage() {
 
                 return (
                   <div key={stage.label}>
-                    <div className="mb-1.5 flex items-center justify-between text-sm">
-                      <span className="text-text-light">{stage.label}</span>
-                      <span className="font-serif text-primary">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="body-caption text-ink-text-secondary">
+                        {stage.label}
+                      </span>
+                      <span className="font-serif text-base text-ink">
                         {stage.value.toLocaleString('zh-CN')}
                         {conversionFromPrev && (
-                          <span className="ml-2 text-xs text-text-muted">
+                          <span className="ml-2 font-sans text-xs text-ink-text-muted">
                             {conversionFromPrev}%
                           </span>
                         )}
                       </span>
                     </div>
-                    <div className="h-2 w-full bg-background">
+                    <div className="h-2 w-full bg-paper-aged">
                       <div
-                        className={cn('h-full transition-all duration-700', stage.color)}
+                        className={cn(
+                          'h-full transition-all duration-700',
+                          stage.color,
+                        )}
                         style={{ width: `${widthPct}%` }}
                       />
                     </div>
@@ -550,21 +594,21 @@ export default function DashboardPage() {
               })}
 
               {/* 漏斗底部指标 */}
-              <div className="grid grid-cols-2 gap-4 border-t border-text-muted/10 pt-4">
+              <div className="grid grid-cols-2 gap-4 border-t border-[var(--penjing-border-hairline)] pt-4">
                 <div className="flex items-center gap-2">
-                  <Percent className="h-4 w-4 text-accent" strokeWidth={1.5} />
+                  <Percent className="h-4 w-4 text-gold-deep" strokeWidth={1.5} />
                   <div>
-                    <p className="text-xs text-text-muted">回复率</p>
-                    <p className="font-serif text-lg text-primary">
+                    <p className="body-caption">回复率</p>
+                    <p className="font-serif text-lg text-ink">
                       {inquiryStats.conversionRate}%
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-accent" strokeWidth={1.5} />
+                  <CheckCircle2 className="h-4 w-4 text-gold-deep" strokeWidth={1.5} />
                   <div>
-                    <p className="text-xs text-text-muted">处理率</p>
-                    <p className="font-serif text-lg text-primary">
+                    <p className="body-caption">处理率</p>
+                    <p className="font-serif text-lg text-ink">
                       {inquiryStats.processedRate}%
                     </p>
                   </div>
@@ -581,36 +625,30 @@ export default function DashboardPage() {
           {inventory ? (
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
-                <div className="border-l-2 border-accent pl-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    库存总值
-                  </p>
-                  <p className="mt-2 font-serif text-2xl text-primary">
+                <div className="border-l-2 border-gold pl-4">
+                  <p className="eyebrow-label">库存总值</p>
+                  <p className="mt-2 font-serif text-2xl text-ink">
                     ¥{formatPrice(inventory.totalStockValue)}
                   </p>
                 </div>
-                <div className="border-l-2 border-primary-light pl-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    库存总量
-                  </p>
-                  <p className="mt-2 font-serif text-2xl text-primary">
+                <div className="border-l-2 border-ink-soft pl-4">
+                  <p className="eyebrow-label">库存总量</p>
+                  <p className="mt-2 font-serif text-2xl text-ink">
                     {inventory.totalStockUnits.toLocaleString('zh-CN')}
-                    <span className="ml-1 text-sm text-text-light">株</span>
+                    <span className="ml-1 font-sans text-sm text-ink-text-secondary">
+                      株
+                    </span>
                   </p>
                 </div>
-                <div className="border-l-2 border-primary pl-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    在售盆景
-                  </p>
-                  <p className="mt-2 font-serif text-2xl text-primary">
+                <div className="border-l-2 border-ink pl-4">
+                  <p className="eyebrow-label">在售盆景</p>
+                  <p className="mt-2 font-serif text-2xl text-ink">
                     {inventory.activeCount.toLocaleString('zh-CN')}
                   </p>
                 </div>
-                <div className="border-l-2 border-accent-dark pl-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    精选盆景
-                  </p>
-                  <p className="mt-2 font-serif text-2xl text-primary">
+                <div className="border-l-2 border-gold-deep pl-4">
+                  <p className="eyebrow-label">精选盆景</p>
+                  <p className="mt-2 font-serif text-2xl text-ink">
                     {inventory.featuredCount.toLocaleString('zh-CN')}
                   </p>
                 </div>
@@ -619,7 +657,7 @@ export default function DashboardPage() {
               {/* 低库存列表 */}
               {inventory.lowStock.length > 0 && (
                 <div>
-                  <p className="mb-3 text-xs uppercase tracking-[0.2em] text-accent">
+                  <p className="eyebrow-label mb-3 text-gold-deep">
                     低库存提醒（≤2 株）
                   </p>
                   <div className="space-y-2">
@@ -627,10 +665,12 @@ export default function DashboardPage() {
                       <Link
                         key={item.id}
                         href={`/admin/bonsais/${item.id}`}
-                        className="flex items-center justify-between border border-text-muted/10 px-3 py-2 transition-colors hover:border-accent/40 hover:bg-accent/5"
+                        className="flex items-center justify-between border border-[var(--penjing-border-fine)] px-3 py-2 transition-colors hover:border-gold hover:bg-paper"
                       >
-                        <span className="text-sm text-primary">{item.name}</span>
-                        <span className="text-xs text-accent-dark">
+                        <span className="font-sans text-sm text-ink">
+                          {item.name}
+                        </span>
+                        <span className="font-sans text-xs text-gold-deep">
                           仅剩 {item.stock} 株
                         </span>
                       </Link>
@@ -646,46 +686,49 @@ export default function DashboardPage() {
       </div>
 
       {/* 最新询价 */}
-      <div className="mt-6 border border-text-muted/15 bg-surface p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="font-serif text-xl text-primary">最新询价</h3>
+      <div className="mt-6 border border-[var(--penjing-border-fine)] bg-paper-warm p-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-gold" aria-hidden="true" />
+            <h3 className="display-card text-ink">最新询价</h3>
+          </div>
           <Link
             href="/admin/chat"
-            className="flex items-center gap-1 text-xs uppercase tracking-[0.2em] text-accent hover:gap-2"
+            className="flex items-center gap-1 font-sans text-[11px] uppercase tracking-[0.3em] text-gold-deep transition-all hover:gap-2"
           >
-            查看全部 <ArrowRight className="h-3 w-3" />
+            查看全部 <ArrowRight className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
           </Link>
         </div>
         {recentRooms && recentRooms.length > 0 ? (
-          <div className="divide-y divide-text-muted/10">
+          <div className="divide-y divide-[var(--penjing-border-hairline)]">
             {recentRooms.slice(0, 5).map((room) => (
               <Link
                 key={room.id}
                 href="/admin/chat"
-                className="flex items-center gap-4 py-4 transition-colors hover:text-accent"
+                className="flex items-center gap-4 py-4 transition-colors hover:text-gold-deep"
               >
-                <MessageSquare className="h-5 w-5 text-accent" strokeWidth={1.5} />
-                <div className="flex-1">
-                  <p className="text-sm text-primary">
+                <MessageSquare className="h-5 w-5 text-gold" strokeWidth={1.5} aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-sans text-sm text-ink">
                     {room.bonsai?.name || `会话 #${room.id}`}
                   </p>
-                  <p className="text-xs text-text-muted">
+                  <p className="body-caption mt-0.5">
                     {formatDateTime(room.createdAt)}
                   </p>
                 </div>
                 {room.status === 0 && (
-                  <span className="bg-accent/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-accent-dark">
+                  <span className="border border-gold bg-gold/10 px-2 py-0.5 font-sans text-[10px] uppercase tracking-wider text-gold-deep">
                     待处理
                   </span>
                 )}
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <span className="font-sans text-[11px] uppercase tracking-[0.3em] text-ink-text-muted">
                   查看
                 </span>
               </Link>
             ))}
           </div>
         ) : (
-          <p className="py-8 text-center text-sm text-text-muted">暂无询价</p>
+          <p className="py-8 text-center body-caption">暂无询价</p>
         )}
       </div>
     </div>

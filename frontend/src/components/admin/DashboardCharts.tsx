@@ -2,7 +2,7 @@
 // 独立拆分以便 next/dynamic 懒加载，避免 recharts 进入主 bundle
 //
 // 性能：recharts 体积约 400KB（gzip ~120KB），懒加载后首屏不再加载
-// 视觉：自定义 Tooltip 与配色，与盆景设计系统一致
+// 视觉：自定义 Tooltip 与配色，与盆景"墨绿+金色"设计系统一致
 
 'use client';
 
@@ -30,29 +30,41 @@ import type {
   CategoryDistribution,
 } from '@/lib/types';
 
-// Tooltip 自定义样式
+// Tooltip 自定义样式：墨色背景 + 金色边线 + 纸色文字
 const tooltipStyle = {
   backgroundColor: CHART_COLORS.primary,
-  border: 'none',
+  border: `1px solid ${CHART_COLORS.accent}`,
   borderRadius: 0,
-  color: '#faf8f5',
+  color: CHART_COLORS.background,
   fontSize: '12px',
+  padding: '8px 12px',
+  boxShadow: '0 4px 12px -4px rgba(26, 58, 46, 0.4)',
 } as const;
+
+// 通用坐标轴样式
+const axisTickStyle = {
+  fontSize: 11,
+  fill: CHART_COLORS.muted,
+  fontFamily: 'var(--penjing-font-sans)',
+} as const;
+
+const cartesianGridStroke = `${CHART_COLORS.muted}20`;
+const axisLineStroke = `${CHART_COLORS.muted}30`;
 
 // 浏览量趋势
 export function ViewsTrendChart({ data }: { data: ChartPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted + '20'} />
+        <CartesianGrid strokeDasharray="3 3" stroke={cartesianGridStroke} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
-          axisLine={{ stroke: CHART_COLORS.muted + '30' }}
+          axisLine={{ stroke: axisLineStroke }}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
@@ -65,7 +77,7 @@ export function ViewsTrendChart({ data }: { data: ChartPoint[] }) {
           stroke={CHART_COLORS.primary}
           strokeWidth={2}
           dot={{ r: 3, fill: CHART_COLORS.accent }}
-          activeDot={{ r: 5 }}
+          activeDot={{ r: 5, fill: CHART_COLORS.accentLight }}
         />
       </LineChart>
     </ResponsiveContainer>
@@ -77,15 +89,15 @@ export function FavoritesTrendChart({ data }: { data: ChartPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted + '20'} />
+        <CartesianGrid strokeDasharray="3 3" stroke={cartesianGridStroke} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
-          axisLine={{ stroke: CHART_COLORS.muted + '30' }}
+          axisLine={{ stroke: axisLineStroke }}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
@@ -98,7 +110,7 @@ export function FavoritesTrendChart({ data }: { data: ChartPoint[] }) {
           stroke={CHART_COLORS.accent}
           strokeWidth={2}
           dot={{ r: 3, fill: CHART_COLORS.primary }}
-          activeDot={{ r: 5 }}
+          activeDot={{ r: 5, fill: CHART_COLORS.primaryLight }}
         />
       </LineChart>
     </ResponsiveContainer>
@@ -116,15 +128,15 @@ export function UserGrowthChart({ data }: { data: ChartPoint[] }) {
             <stop offset="95%" stopColor={CHART_COLORS.primaryLight} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted + '20'} />
+        <CartesianGrid strokeDasharray="3 3" stroke={cartesianGridStroke} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
-          axisLine={{ stroke: CHART_COLORS.muted + '30' }}
+          axisLine={{ stroke: axisLineStroke }}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
@@ -148,20 +160,20 @@ export function InquiryTrendChart({ data }: { data: ChartPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted + '20'} />
+        <CartesianGrid strokeDasharray="3 3" stroke={cartesianGridStroke} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
-          axisLine={{ stroke: CHART_COLORS.muted + '30' }}
+          axisLine={{ stroke: axisLineStroke }}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
         />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.muted + '10' }} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: `${CHART_COLORS.muted}10` }} />
         <Bar
           dataKey="count"
           name="询价数"
@@ -182,10 +194,10 @@ export function TopBonsaisChart({ data }: { data: TopBonsai[] }) {
         layout="vertical"
         margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted + '20'} horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={cartesianGridStroke} horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
           axisLine={false}
           allowDecimals={false}
@@ -193,12 +205,12 @@ export function TopBonsaisChart({ data }: { data: TopBonsai[] }) {
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+          tick={axisTickStyle}
           tickLine={false}
           axisLine={false}
           width={100}
         />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.muted + '10' }} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: `${CHART_COLORS.muted}10` }} />
         <Bar dataKey="viewCount" name="浏览量" radius={[0, 2, 2, 0]}>
           {data.map((_, i) => (
             <Cell key={i} fill={i < 3 ? CHART_COLORS.accent : CHART_COLORS.primary} />
@@ -229,7 +241,14 @@ export function CategoryDistChart({ data }: { data: CategoryDistribution[] }) {
           ))}
         </Pie>
         <Tooltip contentStyle={tooltipStyle} />
-        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+        <Legend
+          wrapperStyle={{
+            fontSize: 11,
+            fontFamily: 'var(--penjing-font-sans)',
+            color: CHART_COLORS.muted,
+          }}
+          iconType="circle"
+        />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -239,9 +258,11 @@ export function CategoryDistChart({ data }: { data: CategoryDistribution[] }) {
 export function ChartSkeleton() {
   return (
     <div className="flex h-[280px] w-full items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-text-muted">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-        <span className="text-xs uppercase tracking-[0.2em]">图表加载中</span>
+      <div className="flex flex-col items-center gap-3 text-ink-text-muted">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+        <span className="font-sans text-[11px] uppercase tracking-[0.3em]">
+          图表加载中
+        </span>
       </div>
     </div>
   );

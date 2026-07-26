@@ -36,6 +36,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/start.sh ./start.sh
 
+# 生成 Prisma Client（生产阶段 node_modules 是独立安装的，需要重新生成）
+RUN npx prisma generate
+
 # 创建上传目录、sentinel 目录并收紧权限
 # /app/data 用于存放首次启动标记（sentinel），需要 node 用户可写
 RUN mkdir -p /app/uploads /app/data && \

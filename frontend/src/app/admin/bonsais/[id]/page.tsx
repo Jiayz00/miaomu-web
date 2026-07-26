@@ -33,13 +33,14 @@ export default function EditBonsaiPage({ params }: { params: { id: string } }) {
       <div className="mb-8">
         <Link
           href="/admin/bonsais"
-          className="mb-4 inline-flex items-center gap-2 text-sm text-text-light transition-colors hover:text-accent"
+          className="mb-4 inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.2em] text-ink-text-secondary transition-colors hover:text-gold-deep"
         >
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
           返回列表
         </Link>
-        <h1 className="font-serif text-3xl text-primary">编辑盆景</h1>
-        <p className="mt-1 text-sm text-text-muted">修改盆景信息</p>
+        <span className="eyebrow-label">藏品管理</span>
+        <h1 className="display-section mt-2 text-ink">编辑盆景</h1>
+        <p className="body-base mt-2 text-ink-text-secondary">修改盆景信息</p>
       </div>
 
       <BonsaiForm initialData={bonsai} />

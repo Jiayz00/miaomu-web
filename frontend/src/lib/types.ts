@@ -4,7 +4,16 @@ export interface Bonsai {
   id: number;
   name: string;
   slug: string;
+  catalogNumber: string | null;
   description: string;
+  artisticDescription: string | null;
+  era: string | null;
+  material: string | null;
+  potDescription: string | null;
+  canopyWidth: number | null;
+  dimensions: string | null;
+  provenance: string | null;
+  exhibitions: Array<{ name: string; year?: number; location?: string }> | null;
   price: string;
   stock: number;
   origin: string;
@@ -221,6 +230,22 @@ export interface SiteLayout {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// 布局草稿（后端 GET /admin/settings/layout/:key/draft 返回）
+export interface LayoutDraft {
+  key: string;
+  sections: HomeSection[];
+  draftUpdatedAt: string | null;
+  hasUnpublishedChanges: boolean;
+  isActive: boolean;
+}
+
+// 布局草稿预览 token（后端 POST /admin/settings/layout/:key/preview-token 返回）
+export interface LayoutPreviewToken {
+  previewUrl: string;
+  token: string;
+  expiresAt: number;
 }
 
 // 轮播图单条配置

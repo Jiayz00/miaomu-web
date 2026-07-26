@@ -186,6 +186,38 @@ export class RedisService implements OnModuleInit {
   }
 
   /**
+   * JSON 缓存：SET
+   */
+  async setJson<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    await this.set(key, JSON.stringify(value), ttlSeconds);
+  }
+
+  /**
+   * JSON 缓存：GET
+   */
+  async getJson<T>(key: string): Promise<T | null> {
+    const raw = await this.get(key);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 按 pattern 删除 key（使用 SCAN 避免 KEYS 阻塞）
+   */
+  async deletePattern(pattern: string): Promise<number> {
+    let deleted = 0;
+    for await (const key of this.client.scanIterator({ MATCH: pattern })) {
+      await this.client.del(key);
+      deleted += 1;
+    }
+    return deleted;
+  }
+
+  /**
    * 原子自增（用于计数器/限流）
    */
   async incr(key: string): Promise<number> {

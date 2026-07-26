@@ -1,5 +1,10 @@
 // 区块配置编辑面板：根据 section.type 渲染不同字段
 // 通用字段（title / subtitle / visible）始终显示，专属配置按 type 分支
+//
+// 视觉语言：东方雅致 · 墨绿+金色
+// - 表单字段：底线式输入框 + 金色焦点（input-penjing 风格）
+// - 标签：金色 eyebrow 小标签
+// - 区块容器：hairline 描边 + 纸面背景
 
 'use client';
 
@@ -23,10 +28,11 @@ interface SectionConfigEditorProps {
   onUpdateConfig: (configPatch: Record<string, unknown>) => void;
 }
 
+// 表单字段统一样式：底线式输入框，金色焦点
 const inputClass =
-  'w-full border border-text-muted/20 bg-surface px-3 py-2 text-sm text-text transition-colors focus:border-accent focus:outline-none';
+  'w-full border-0 border-b border-[var(--penjing-border-strong)] bg-transparent px-0 py-2.5 font-sans text-sm text-[var(--penjing-ink-text)] transition-colors placeholder:text-[var(--penjing-ink-text-faint)] focus:border-gold focus:outline-none';
 const labelClass =
-  'mb-1.5 block text-xs uppercase tracking-[0.15em] text-text-muted';
+  'mb-1.5 block font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep';
 
 export function SectionConfigEditor({
   section,
@@ -36,9 +42,12 @@ export function SectionConfigEditor({
   const type = section.type;
 
   return (
-    <div className="border border-text-muted/15 bg-surface p-6">
+    <div className="border border-[var(--penjing-border-fine)] bg-paper-warm p-5">
       {/* 通用字段 */}
-      <div className="mb-6 space-y-4 border-b border-text-muted/10 pb-6">
+      <div className="mb-6 space-y-4 border-b border-[var(--penjing-border-hairline)] pb-6">
+        <div className="mb-2">
+          <span className="eyebrow-label text-gold-deep">通用字段</span>
+        </div>
         <div>
           <label htmlFor="section-title" className={labelClass}>
             区块标题
@@ -65,8 +74,11 @@ export function SectionConfigEditor({
             className={inputClass}
           />
         </div>
-        <div className="flex items-center gap-3">
-          <label htmlFor="section-visible" className="text-sm text-text-light">
+        <div className="flex items-center gap-3 pt-2">
+          <label
+            htmlFor="section-visible"
+            className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep"
+          >
             是否显示
           </label>
           <button
@@ -78,15 +90,15 @@ export function SectionConfigEditor({
             onClick={() => onUpdate({ visible: !section.visible })}
             className={
               section.visible
-                ? 'relative h-6 w-11 rounded-full bg-accent transition-colors'
-                : 'relative h-6 w-11 rounded-full bg-text-muted/30 transition-colors'
+                ? 'relative h-6 w-11 rounded-full bg-gold transition-colors'
+                : 'relative h-6 w-11 rounded-full bg-[var(--penjing-border-strong)] transition-colors'
             }
           >
             <span
               className={
                 section.visible
-                  ? 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-primary-dark transition-transform translate-x-5'
-                  : 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-background transition-transform'
+                  ? 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-ink-deepest transition-transform translate-x-5'
+                  : 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-paper transition-transform'
               }
             />
           </button>
@@ -95,7 +107,7 @@ export function SectionConfigEditor({
 
       {/* 专属配置 */}
       <div className="space-y-4">
-        <h3 className="text-xs uppercase tracking-[0.2em] text-accent">
+        <h3 className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep">
           专属配置 · {type}
         </h3>
         {type === 'hero' && (
@@ -229,7 +241,7 @@ function ToggleField({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <label htmlFor={id} className="text-sm text-text-light">
+      <label htmlFor={id} className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep">
         {label}
       </label>
       <button
@@ -240,15 +252,15 @@ function ToggleField({
         onClick={() => onChange(!value)}
         className={
           value
-            ? 'relative h-6 w-11 rounded-full bg-accent transition-colors'
-            : 'relative h-6 w-11 rounded-full bg-text-muted/30 transition-colors'
+            ? 'relative h-6 w-11 rounded-full bg-gold transition-colors'
+            : 'relative h-6 w-11 rounded-full bg-[var(--penjing-border-strong)] transition-colors'
         }
       >
         <span
           className={
             value
-              ? 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-primary-dark transition-transform translate-x-5'
-              : 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-background transition-transform'
+              ? 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-ink-deepest transition-transform translate-x-5'
+              : 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-paper transition-transform'
           }
         />
       </button>
@@ -272,7 +284,7 @@ function HeroConfig({ section, onUpdateConfig }: ConfigEditorProps) {
         label="背景图 URL"
         value={(cfg.heroImage as string) || ''}
         onChange={(v) => onUpdateConfig({ heroImage: v })}
-        placeholder="https://picsum.photos/seed/xxx/1920/800 或 /uploads/xxx.jpg"
+        placeholder="/images/xxx.jpg 或 /uploads/xxx.jpg"
       />
       <TextField
         id="hero-eyebrow"
@@ -473,7 +485,7 @@ function ShowcaseConfig({ section, onUpdateConfig }: ConfigEditorProps) {
           <button
             type="button"
             onClick={addId}
-            className="flex items-center gap-1 border border-accent px-3 text-xs uppercase tracking-wider text-accent hover:bg-accent hover:text-primary"
+            className="flex items-center gap-1 border border-gold px-3 font-sans text-[11px] uppercase tracking-[0.2em] text-gold-deep transition-colors hover:bg-gold hover:text-ink-deepest"
           >
             <Plus className="h-3 w-3" />
             添加
@@ -484,14 +496,14 @@ function ShowcaseConfig({ section, onUpdateConfig }: ConfigEditorProps) {
             {ids.map((id) => (
               <span
                 key={id}
-                className="inline-flex items-center gap-1.5 border border-text-muted/30 bg-text-muted/5 px-2 py-1 text-xs text-text-light"
+                className="inline-flex items-center gap-1.5 border border-[var(--penjing-border-strong)] bg-paper px-2 py-1 font-sans text-xs text-ink-text-secondary"
               >
                 ID: {id}
                 <button
                   type="button"
                   onClick={() => removeId(id)}
                   aria-label={`移除 ID ${id}`}
-                  className="text-text-muted hover:text-red-500"
+                  className="text-ink-text-muted transition-colors hover:text-state-error"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -556,7 +568,7 @@ function StoryConfig({ section, onUpdateConfig }: ConfigEditorProps) {
                 type="button"
                 onClick={() => removeParagraph(idx)}
                 aria-label={`删除第 ${idx + 1} 段`}
-                className="flex-shrink-0 self-start border border-text-muted/30 p-2 text-text-muted hover:border-red-500 hover:text-red-500"
+                className="flex-shrink-0 self-start border border-[var(--penjing-border-strong)] p-2 text-ink-text-muted transition-colors hover:border-state-error hover:text-state-error"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -566,7 +578,7 @@ function StoryConfig({ section, onUpdateConfig }: ConfigEditorProps) {
         <button
           type="button"
           onClick={addParagraph}
-          className="mt-2 flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-accent-light"
+          className="mt-2 flex items-center gap-1 font-sans text-[11px] uppercase tracking-[0.2em] text-gold-deep transition-colors hover:text-gold-bright"
         >
           <Plus className="h-3 w-3" />
           添加段落
@@ -718,13 +730,13 @@ function StatsConfig({ section, onUpdateConfig }: ConfigEditorProps) {
           {STAT_OPTIONS.map((opt) => (
             <label
               key={opt.key}
-              className="flex items-center gap-2 text-sm text-text-light"
+              className="flex items-center gap-2 font-sans text-sm text-ink-text-secondary"
             >
               <input
                 type="checkbox"
                 checked={items.includes(opt.key)}
                 onChange={() => toggleItem(opt.key)}
-                className="h-4 w-4 accent-accent"
+                className="h-4 w-4 accent-gold"
               />
               {opt.label}
             </label>
@@ -816,7 +828,7 @@ function ImageUrlField({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="flex items-center gap-1.5 border border-text-muted/30 px-3 text-xs uppercase tracking-wider text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+            className="flex items-center gap-1.5 border border-[var(--penjing-border-strong)] px-3 font-sans text-[11px] uppercase tracking-[0.2em] text-ink-text-secondary transition-colors hover:border-gold hover:text-gold-deep disabled:opacity-50"
           >
             {uploading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -834,9 +846,9 @@ function ImageUrlField({
             aria-hidden="true"
           />
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="font-sans text-xs text-state-error">{error}</p>}
         {value && (
-          <div className="relative inline-block h-20 w-20 overflow-hidden border border-text-muted/20">
+          <div className="relative inline-block h-20 w-20 overflow-hidden border border-[var(--penjing-border-fine)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={value}
@@ -847,7 +859,7 @@ function ImageUrlField({
               type="button"
               onClick={() => onChange('')}
               aria-label="移除图片"
-              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center bg-primary-dark/70 text-background hover:bg-red-500"
+              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center bg-ink-deepest/70 text-paper transition-colors hover:bg-state-error"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -910,17 +922,17 @@ function CarouselConfig({ section, onUpdateConfig }: ConfigEditorProps) {
           {slides.map((slide, idx) => (
             <div
               key={idx}
-              className="border border-text-muted/15 bg-background/50 p-4"
+              className="border border-[var(--penjing-border-hairline)] bg-paper/50 p-4"
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs text-text-muted">第 {idx + 1} 张</span>
+                <span className="font-sans text-[11px] uppercase tracking-[0.2em] text-gold-deep">第 {idx + 1} 张</span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => moveSlide(idx, 'up')}
                     disabled={idx === 0}
                     aria-label="上移"
-                    className="p-1 text-text-muted hover:text-primary disabled:opacity-30"
+                    className="p-1 text-ink-text-muted transition-colors hover:text-ink disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -929,7 +941,7 @@ function CarouselConfig({ section, onUpdateConfig }: ConfigEditorProps) {
                     onClick={() => moveSlide(idx, 'down')}
                     disabled={idx === slides.length - 1}
                     aria-label="下移"
-                    className="p-1 text-text-muted hover:text-primary disabled:opacity-30"
+                    className="p-1 text-ink-text-muted transition-colors hover:text-ink disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -937,7 +949,7 @@ function CarouselConfig({ section, onUpdateConfig }: ConfigEditorProps) {
                     type="button"
                     onClick={() => removeSlide(idx)}
                     aria-label={`删除第 ${idx + 1} 张`}
-                    className="p-1 text-text-muted hover:text-red-500"
+                    className="p-1 text-ink-text-muted transition-colors hover:text-state-error"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -978,7 +990,7 @@ function CarouselConfig({ section, onUpdateConfig }: ConfigEditorProps) {
         <button
           type="button"
           onClick={addSlide}
-          className="mt-3 flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-accent-light"
+          className="mt-3 flex items-center gap-1 font-sans text-[11px] uppercase tracking-[0.2em] text-gold-deep transition-colors hover:text-gold-bright"
         >
           <Plus className="h-3 w-3" />
           添加轮播图
@@ -1013,7 +1025,7 @@ function TextImageConfigEditor({ section, onUpdateConfig }: ConfigEditorProps) {
           placeholder="输入正文，支持普通文字或 HTML"
           className={inputClass}
         />
-        <p className="mt-1 text-xs text-text-muted">
+        <p className="mt-1 font-sans text-xs text-ink-text-muted">
           支持输入普通文字或简单 HTML 标签
         </p>
       </div>
@@ -1167,7 +1179,7 @@ function TextConfigEditor({ section, onUpdateConfig }: ConfigEditorProps) {
         placeholder="输入自定义文字或 HTML 内容"
         className={inputClass}
       />
-      <p className="mt-1 text-xs text-text-muted">
+      <p className="mt-1 font-sans text-xs text-ink-text-muted">
         支持普通文字与 HTML 标签，可自由排版
       </p>
     </div>

@@ -1,13 +1,5 @@
 // 我的收藏筛选面板
-//
-// 与盆景列表页 FilterPanel 的差异：
-// - 数据源已在前端完整加载（useFavorites 一次拉取所有收藏）
-// - 筛选/排序/搜索在前端完成，不触发后端请求
-// - 通过 onChange 回调将筛选条件上抛父组件，父组件用 useMemo 计算最终列表
-//
-// 交互：
-// - 桌面端：常驻左侧 sticky 侧栏（与盆景列表页保持视觉一致）
-// - 移动端：抽屉式滑入（Esc 关闭 + 背景滚动锁定 + 焦点管理）
+// 东方雅致风格：与 FilterPanel 一致的视觉语言（金色选中下划线 + eyebrow 标题）
 
 'use client';
 
@@ -25,8 +17,8 @@ import type { Category } from '@/lib/types';
 
 export interface FavoritesFilterState {
   search: string;
-  categoryId: string; // '' 表示全部
-  price: string; // '' 或 'min-max'
+  categoryId: string;
+  price: string;
   origin: string;
   year: string;
   sort: string;
@@ -38,7 +30,7 @@ export const DEFAULT_FAVORITES_FILTER: FavoritesFilterState = {
   price: '',
   origin: '',
   year: '',
-  sort: 'newest', // 收藏默认按最新收藏排序
+  sort: 'newest',
 };
 
 interface FavoritesFilterPanelProps {
@@ -46,10 +38,8 @@ interface FavoritesFilterPanelProps {
   value: FavoritesFilterState;
   onChange: (next: FavoritesFilterState) => void;
   onReset: () => void;
-  // 移动端控制
   open?: boolean;
   onClose?: () => void;
-  // 当前筛选下的结果数（用于移动端展示）
   resultCount?: number;
 }
 
@@ -61,8 +51,8 @@ function FilterSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-text-muted/10 py-6">
-      <h3 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-text-light">
+    <div className="border-t border-[var(--penjing-border-hairline)] py-7 first:border-t-0 first:pt-0">
+      <h3 className="mb-1 font-sans text-[11px] font-medium uppercase tracking-[0.3em] text-gold-deep">
         {title}
       </h3>
       {children}
@@ -71,7 +61,7 @@ function FilterSection({
 }
 
 const filterBtnBase =
-  'block w-full py-1.5 text-left text-sm transition-colors active:scale-[0.98] origin-left';
+  'flex w-full items-baseline justify-between gap-3 py-1.5 text-left font-sans text-[13px] transition-colors duration-300 origin-left active:scale-[0.98]';
 
 export function FavoritesFilterPanel({
   categories,
@@ -82,7 +72,6 @@ export function FavoritesFilterPanel({
   onClose,
   resultCount,
 }: FavoritesFilterPanelProps) {
-  // 移动端抽屉：Esc 关闭 + 锁定背景滚动（WCAG 2.1.2 No Keyboard Trap）
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -103,13 +92,11 @@ export function FavoritesFilterPanel({
     onChange({ ...value, [key]: v });
   };
 
-  // 价格区间选中匹配
   const priceValue =
     PRICE_RANGES.find((r) => `${r.min}-${r.max}` === value.price)?.value || '';
 
   const content = (
     <div className="space-y-0">
-      {/* 搜索 */}
       <FilterSection title="关键词">
         <input
           id="favorites-search"
@@ -119,35 +106,36 @@ export function FavoritesFilterPanel({
           onChange={(e) => update('search', e.target.value)}
           placeholder="搜索藏品名称"
           aria-label="搜索收藏的盆景"
-          className="w-full border border-text-muted/20 bg-surface px-3 py-2 text-sm text-text transition-colors placeholder:text-text-muted/60 focus:border-accent focus:outline-none"
+          className="w-full border border-[var(--penjing-border-fine)] bg-paper px-3 py-2 font-sans text-sm text-ink-text transition-colors placeholder:text-ink-text-faint focus:border-gold focus:outline-none"
         />
       </FilterSection>
 
-      {/* 排序 */}
-      <FilterSection title="排序方式">
-        <div className="space-y-1">
-          {SORT_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => update('sort', opt.value)}
-              aria-pressed={value.sort === opt.value}
-              className={cn(
-                filterBtnBase,
-                value.sort === opt.value
-                  ? 'text-accent'
-                  : 'text-text-light hover:text-primary',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+      <FilterSection title="排序">
+        <div className="flex flex-col gap-0.5">
+          {SORT_OPTIONS.map((opt) => {
+            const active = value.sort === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => update('sort', opt.value)}
+                aria-pressed={active}
+                className={cn(
+                  filterBtnBase,
+                  active
+                    ? 'border-b border-gold font-medium text-ink'
+                    : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
+                )}
+              >
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
         </div>
       </FilterSection>
 
-      {/* 分类 */}
       <FilterSection title="分类">
-        <div className="space-y-1">
+        <div className="flex flex-col gap-0.5">
           <button
             type="button"
             onClick={() => update('categoryId', '')}
@@ -155,34 +143,36 @@ export function FavoritesFilterPanel({
             className={cn(
               filterBtnBase,
               !value.categoryId
-                ? 'text-accent'
-                : 'text-text-light hover:text-primary',
+                ? 'border-b border-gold font-medium text-ink'
+                : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
             )}
           >
-            全部分类
+            <span>全部分类</span>
           </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => update('categoryId', String(cat.id))}
-              aria-pressed={value.categoryId === String(cat.id)}
-              className={cn(
-                filterBtnBase,
-                value.categoryId === String(cat.id)
-                  ? 'text-accent'
-                  : 'text-text-light hover:text-primary',
-              )}
-            >
-              {cat.name}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const active = value.categoryId === String(cat.id);
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => update('categoryId', String(cat.id))}
+                aria-pressed={active}
+                className={cn(
+                  filterBtnBase,
+                  active
+                    ? 'border-b border-gold font-medium text-ink'
+                    : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
+                )}
+              >
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
         </div>
       </FilterSection>
 
-      {/* 价格区间 */}
       <FilterSection title="价格区间">
-        <div className="space-y-1">
+        <div className="flex flex-col gap-0.5">
           <button
             type="button"
             onClick={() => update('price', '')}
@@ -190,34 +180,36 @@ export function FavoritesFilterPanel({
             className={cn(
               filterBtnBase,
               !value.price
-                ? 'text-accent'
-                : 'text-text-light hover:text-primary',
+                ? 'border-b border-gold font-medium text-ink'
+                : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
             )}
           >
-            全部价格
+            <span>全部价格</span>
           </button>
-          {PRICE_RANGES.map((range) => (
-            <button
-              key={range.value}
-              type="button"
-              onClick={() => update('price', `${range.min}-${range.max}`)}
-              aria-pressed={priceValue === range.value}
-              className={cn(
-                filterBtnBase,
-                priceValue === range.value
-                  ? 'text-accent'
-                  : 'text-text-light hover:text-primary',
-              )}
-            >
-              {range.label}
-            </button>
-          ))}
+          {PRICE_RANGES.map((range) => {
+            const active = priceValue === range.value;
+            return (
+              <button
+                key={range.value}
+                type="button"
+                onClick={() => update('price', `${range.min}-${range.max}`)}
+                aria-pressed={active}
+                className={cn(
+                  filterBtnBase,
+                  active
+                    ? 'border-b border-gold font-medium text-ink'
+                    : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
+                )}
+              >
+                <span>{range.label}</span>
+              </button>
+            );
+          })}
         </div>
       </FilterSection>
 
-      {/* 产地 */}
       <FilterSection title="产地">
-        <div className="max-h-48 space-y-1 overflow-y-auto pr-2">
+        <div className="max-h-48 flex flex-col gap-0.5 overflow-y-auto pr-2">
           <button
             type="button"
             onClick={() => update('origin', '')}
@@ -225,34 +217,36 @@ export function FavoritesFilterPanel({
             className={cn(
               filterBtnBase,
               !value.origin
-                ? 'text-accent'
-                : 'text-text-light hover:text-primary',
+                ? 'border-b border-gold font-medium text-ink'
+                : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
             )}
           >
-            全部产地
+            <span>全部产地</span>
           </button>
-          {ORIGIN_OPTIONS.map((origin) => (
-            <button
-              key={origin}
-              type="button"
-              onClick={() => update('origin', origin)}
-              aria-pressed={value.origin === origin}
-              className={cn(
-                filterBtnBase,
-                value.origin === origin
-                  ? 'text-accent'
-                  : 'text-text-light hover:text-primary',
-              )}
-            >
-              {origin}
-            </button>
-          ))}
+          {ORIGIN_OPTIONS.map((origin) => {
+            const active = value.origin === origin;
+            return (
+              <button
+                key={origin}
+                type="button"
+                onClick={() => update('origin', origin)}
+                aria-pressed={active}
+                className={cn(
+                  filterBtnBase,
+                  active
+                    ? 'border-b border-gold font-medium text-ink'
+                    : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
+                )}
+              >
+                <span>{origin}</span>
+              </button>
+            );
+          })}
         </div>
       </FilterSection>
 
-      {/* 年份 */}
       <FilterSection title="年份">
-        <div className="max-h-48 space-y-1 overflow-y-auto pr-2">
+        <div className="max-h-48 flex flex-col gap-0.5 overflow-y-auto pr-2">
           <button
             type="button"
             onClick={() => update('year', '')}
@@ -260,37 +254,40 @@ export function FavoritesFilterPanel({
             className={cn(
               filterBtnBase,
               !value.year
-                ? 'text-accent'
-                : 'text-text-light hover:text-primary',
+                ? 'border-b border-gold font-medium text-ink'
+                : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
             )}
           >
-            全部年份
+            <span>全部年份</span>
           </button>
-          {YEAR_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => update('year', opt.value)}
-              aria-pressed={value.year === opt.value}
-              className={cn(
-                filterBtnBase,
-                value.year === opt.value
-                  ? 'text-accent'
-                  : 'text-text-light hover:text-primary',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {YEAR_OPTIONS.map((opt) => {
+            const active = value.year === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => update('year', opt.value)}
+                aria-pressed={active}
+                className={cn(
+                  filterBtnBase,
+                  active
+                    ? 'border-b border-gold font-medium text-ink'
+                    : 'border-b border-transparent text-ink-text-secondary hover:text-ink-text',
+                )}
+              >
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
         </div>
       </FilterSection>
 
       {/* 重置 */}
-      <div className="pt-6">
+      <div className="pt-7">
         <button
           type="button"
           onClick={onReset}
-          className="flex w-full items-center justify-center gap-2 border border-text-muted/30 py-2.5 text-xs uppercase tracking-[0.2em] text-text-light transition-colors hover:border-accent hover:text-accent active:scale-[0.98]"
+          className="inline-flex items-center gap-2 border-b border-[var(--penjing-border-strong)] pb-0.5 font-sans text-xs tracking-[0.15em] text-ink-text-muted transition-colors hover:border-gold hover:text-gold-deep active:scale-[0.98]"
         >
           <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
           重置筛选
@@ -301,20 +298,15 @@ export function FavoritesFilterPanel({
 
   return (
     <>
-      {/* 桌面端：常驻侧栏 */}
       <aside className="hidden lg:block" aria-label="收藏筛选">
-        <div className="sticky top-24">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-primary">
-              <SlidersHorizontal
-                className="h-4 w-4"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
-              <span className="font-serif text-xl">筛选</span>
+        <div className="sticky top-[100px]">
+          <div className="mb-6 flex items-center justify-between border-b border-[var(--penjing-border-hairline)] pb-4">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-gold-deep" strokeWidth={1.5} aria-hidden="true" />
+              <span className="font-serif text-base font-medium text-ink">筛选</span>
             </div>
             {typeof resultCount === 'number' && (
-              <span className="text-xs text-text-muted">
+              <span className="font-sans text-xs text-ink-text-muted">
                 共 {resultCount} 件
               </span>
             )}
@@ -323,7 +315,6 @@ export function FavoritesFilterPanel({
         </div>
       </aside>
 
-      {/* 移动端：抽屉 */}
       <AnimatePresence>
         {open && (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -331,8 +322,8 @@ export function FavoritesFilterPanel({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-primary-dark/50 backdrop-blur-sm"
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 bg-ink-deepest/55 backdrop-blur-sm"
               onClick={onClose}
               aria-hidden="true"
             />
@@ -340,17 +331,17 @@ export function FavoritesFilterPanel({
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute right-0 top-0 flex h-full w-80 max-w-[85vw] flex-col bg-background"
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute right-0 top-0 flex h-full w-80 max-w-[85vw] flex-col bg-paper"
               role="dialog"
               aria-modal="true"
               aria-label="收藏筛选"
             >
-              <div className="flex items-center justify-between border-b border-text-muted/10 p-6">
+              <div className="flex items-center justify-between border-b border-[var(--penjing-border-hairline)] px-6 py-5">
                 <div className="flex items-center gap-2">
-                  <span className="font-serif text-xl text-primary">筛选</span>
+                  <span className="font-serif text-base font-medium text-ink">筛选</span>
                   {typeof resultCount === 'number' && (
-                    <span className="text-xs text-text-muted">
+                    <span className="font-sans text-xs text-ink-text-muted">
                       · {resultCount} 件
                     </span>
                   )}
@@ -358,18 +349,18 @@ export function FavoritesFilterPanel({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-text-light transition-colors hover:bg-background/60 active:scale-95"
+                  className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-ink-text-secondary transition-colors hover:bg-paper-warm active:scale-95"
                   aria-label="关闭筛选"
                 >
                   <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-6">{content}</div>
-              <div className="border-t border-text-muted/10 p-4">
+              <div className="flex-1 overflow-y-auto px-6 py-4">{content}</div>
+              <div className="border-t border-[var(--penjing-border-hairline)] p-4">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full bg-primary py-3 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light active:scale-[0.98]"
+                  className="btn-ink w-full !py-3 !text-[11px]"
                 >
                   查看 {resultCount ?? 0} 件结果
                 </button>

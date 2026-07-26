@@ -8,7 +8,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <Header />
-      <main id="main-content" className="min-h-screen">
+      <main id="main-content" className="min-h-dvh">
         {children}
       </main>
       <Footer />

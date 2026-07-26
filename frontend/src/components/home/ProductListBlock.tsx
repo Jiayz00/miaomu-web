@@ -5,6 +5,8 @@
 // - categoryId: 分类 ID（source === 'category' 时生效）
 // - limit: 展示数量
 // - eyebrow / ctaText / ctaLink
+//
+// 东方雅致·墨绿+金色设计系统
 
 'use client';
 
@@ -79,13 +81,15 @@ export function ProductListBlock({ section }: ProductListBlockProps) {
   );
 
   return (
-    <section className="bg-background py-20 md:py-28">
-      <div className="container-luxury">
+    <section aria-label={title} className="section-paper py-20 md:py-28">
+      <div className="container-penjing">
         <div className="mb-12 text-center md:mb-16">
-          <span className="section-eyebrow justify-center">{eyebrow}</span>
-          <h2 className="font-serif text-4xl text-primary md:text-5xl">{title}</h2>
+          <div className="flex justify-center">
+            <span className="eyebrow-with-line">{eyebrow}</span>
+          </div>
+          <h2 className="display-section text-ink-text">{title}</h2>
           {subtitle && (
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-text-light">
+            <p className="body-base mx-auto mt-4 max-w-xl text-ink-text-secondary">
               {subtitle}
             </p>
           )}
@@ -102,24 +106,28 @@ export function ProductListBlock({ section }: ProductListBlockProps) {
                 index={i}
                 favorited={favoriteMap?.[bonsai.id] ?? false}
                 onFavoriteToggle={handleFavoriteToggle}
+                priority={i < 4}
+                loading={i < 4 ? 'eager' : 'lazy'}
               />
             ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="font-serif text-2xl text-primary">暂无盆景</p>
+            <p className="display-card text-ink-text">暂无盆景</p>
           </div>
         )}
 
-        <div className="mt-16 text-center">
-          <Link
-            href={ctaLink}
-            className="inline-flex items-center gap-2 text-sm tracking-[0.2em] text-accent transition-all duration-300 hover:gap-3"
-          >
-            {ctaText}
-            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-          </Link>
-        </div>
+        {list.length > 0 && (
+          <div className="mt-16 text-center">
+            <Link
+              href={ctaLink}
+              className="inline-flex items-center gap-2 body-base text-gold-deep transition-all duration-300 ease-penjing-soft hover:gap-3 hover:text-gold"
+            >
+              {ctaText}
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -1,4 +1,10 @@
-// 分类管理：列表 + 新增/编辑弹窗 + 排版设置
+// 分类管理：卡片网格 + 新增/编辑弹窗 + 排版设置
+//
+// 设计系统对齐：
+// - 顶部标题：eyebrow-label + display-section + 统计计数
+// - Tab：金色下划线激活态
+// - 分类卡片：paper-warm + 金色左边框 + 元数据网格
+// - 弹窗：paper 背景 + 金色描边按钮
 
 'use client';
 
@@ -192,15 +198,17 @@ export default function AdminCategoriesPage() {
     }
   };
 
+  // 统一输入样式：与 BonsaiForm 一致的 input-penjing 风格
   const inputClass =
-    'w-full border border-text-muted/20 bg-surface px-4 py-2.5 text-text transition-colors focus:border-accent focus:outline-none';
+    'w-full border border-[var(--penjing-border-fine)] bg-paper px-4 py-2.5 font-sans text-sm text-ink-text transition-colors placeholder:text-ink-text-faint focus:border-gold focus:outline-none';
 
   return (
     <div>
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-primary">分类管理</h1>
-          <p className="mt-1 text-sm text-text-muted">
+          <span className="eyebrow-label">分类管理</span>
+          <h1 className="display-section mt-2 text-ink">分类管理</h1>
+          <p className="body-base mt-2 text-ink-text-secondary">
             {tab === 'list'
               ? `共 ${categories?.length || 0} 个分类`
               : '配置用户端分类页的展示方式'}
@@ -210,26 +218,30 @@ export default function AdminCategoriesPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 bg-primary px-6 py-3 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light"
+            className="btn-gold"
           >
-            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             新增分类
           </button>
         )}
       </div>
 
-      {/* Tab 切换 */}
-      <div className="mb-8 border-b border-text-muted/15" role="tablist" aria-label="分类管理视图">
+      {/* Tab 切换：金色下划线激活态 */}
+      <div
+        className="mb-8 flex gap-1 border-b border-[var(--penjing-border-fine)]"
+        role="tablist"
+        aria-label="分类管理视图"
+      >
         <button
           type="button"
           role="tab"
           aria-selected={tab === 'list'}
           onClick={() => setTab('list')}
           className={cn(
-            'flex items-center gap-2 px-5 py-3 text-xs uppercase tracking-[0.2em] transition-colors -mb-px border-b-2',
+            'flex items-center gap-2 -mb-px border-b-2 px-5 py-3 font-sans text-xs uppercase tracking-[0.2em] transition-colors',
             tab === 'list'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-text-light hover:text-primary',
+              ? 'border-gold text-gold-deep'
+              : 'border-transparent text-ink-text-secondary hover:text-ink-text',
           )}
         >
           <ListIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
@@ -241,10 +253,10 @@ export default function AdminCategoriesPage() {
           aria-selected={tab === 'layout'}
           onClick={() => setTab('layout')}
           className={cn(
-            'flex items-center gap-2 px-5 py-3 text-xs uppercase tracking-[0.2em] transition-colors -mb-px border-b-2',
+            'flex items-center gap-2 -mb-px border-b-2 px-5 py-3 font-sans text-xs uppercase tracking-[0.2em] transition-colors',
             tab === 'layout'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-text-light hover:text-primary',
+              ? 'border-gold text-gold-deep'
+              : 'border-transparent text-ink-text-secondary hover:text-ink-text',
           )}
         >
           <LayoutTemplate className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
@@ -255,143 +267,149 @@ export default function AdminCategoriesPage() {
       {/* 列表 Tab */}
       {tab === 'list' && (
         <>
-      {/* 列表 */}
-      <div className="overflow-x-auto border border-text-muted/15 bg-surface">
-        <table className="w-full">
-          <caption className="sr-only">分类列表，含封面、名称、标识、描述与操作</caption>
-          <thead>
-            <tr className="border-b border-text-muted/15 bg-background/50 text-left text-xs uppercase tracking-[0.15em] text-text-muted">
-              <th scope="col" className="px-4 py-4">封面</th>
-              <th scope="col" className="px-4 py-4">名称</th>
-              <th scope="col" className="px-4 py-4">标识</th>
-              <th scope="col" className="px-4 py-4">描述</th>
-              <th scope="col" className="px-4 py-4 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-text-muted/10">
-            {isLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-sm text-text-muted">
-                  加载中…
-                </td>
-              </tr>
-            ) : isError ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-12 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <AlertCircle className="h-8 w-8 text-red-500" strokeWidth={1.5} aria-hidden="true" />
-                    <p className="text-sm text-red-600" role="alert">
-                      {listError instanceof ApiError ? listError.message : '加载失败，请稍后重试'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => refetch()}
-                      disabled={isFetching}
-                      className="flex items-center gap-1.5 border border-text-muted/30 px-4 py-1.5 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                    >
-                      <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
-                      重试
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ) : categories && categories.length > 0 ? (
-              categories.map((cat) => (
-                <tr key={cat.id} className="text-sm transition-colors hover:bg-background/50">
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(cat)}
-                      className="group relative flex h-16 w-24 items-center justify-center overflow-hidden rounded bg-primary-dark/10 transition-colors hover:ring-2 hover:ring-accent/50"
-                      aria-label={`编辑分类 ${cat.name} 的封面`}
-                    >
-                      {cat.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={resolveImageUrl(cat.coverImage)}
-                          alt={cat.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-1 p-2 text-text-muted/60">
-                          <ImageIcon
-                            className="h-5 w-5"
-                            strokeWidth={1.5}
-                            aria-hidden="true"
-                          />
-                          <span className="text-[10px]">未设置封面</span>
-                        </div>
-                      )}
-                      {/* Hover overlay to prompt re-upload / edit */}
-                      <span className="absolute inset-0 flex items-center justify-center bg-primary-dark/60 text-[10px] uppercase tracking-wider text-background opacity-0 transition-opacity group-hover:opacity-100">
-                        更换封面
-                      </span>
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-primary">{cat.name}</td>
-                  <td className="px-4 py-3 text-text-light">{cat.slug}</td>
-                  <td className="px-4 py-3 text-text-muted">
+      {/* 分类卡片网格：paper-warm + 金色左边框 + 元数据网格 */}
+      {isLoading ? (
+        <div className="border border-[var(--penjing-border-fine)] bg-paper-warm px-4 py-16 text-center font-sans text-sm text-ink-text-muted">
+          加载中…
+        </div>
+      ) : isError ? (
+        <div className="border border-[var(--penjing-border-fine)] bg-paper-warm px-4 py-16 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <AlertCircle className="h-8 w-8 text-state-error" strokeWidth={1.5} aria-hidden="true" />
+            <p className="font-sans text-sm text-state-error" role="alert">
+              {listError instanceof ApiError ? listError.message : '加载失败，请稍后重试'}
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-1.5 border border-[var(--penjing-border-fine)] px-4 py-1.5 font-sans text-xs uppercase tracking-[0.2em] text-ink-text-secondary transition-colors hover:border-gold hover:text-gold-deep disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
+              重试
+            </button>
+          </div>
+        </div>
+      ) : categories && categories.length > 0 ? (
+        <div
+          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl-1440:grid-cols-4"
+          role="list"
+          aria-label="分类列表"
+        >
+          {categories.map((cat) => (
+            <article
+              key={cat.id}
+              className="flex flex-col gap-4 border border-[var(--penjing-border-fine)] border-l-[3px] border-l-gold bg-paper-warm p-6 transition-colors hover:border-[var(--penjing-border-strong)]"
+              role="listitem"
+            >
+              {/* 卡片头部：封面 + 名称 + slug */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => openEdit(cat)}
+                  className="group relative flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden bg-paper-aged transition-colors hover:ring-2 hover:ring-gold/50"
+                  aria-label={`编辑分类 ${cat.name} 的封面`}
+                >
+                  {cat.coverImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={resolveImageUrl(cat.coverImage)}
+                      alt={cat.name}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <ImageIcon
+                      className="h-5 w-5 text-ink-text-faint"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className="display-card text-ink">{cat.name}</h3>
+                  <p className="mt-0.5 font-sans text-[11px] tracking-[0.1em] text-ink-text-faint">
+                    {cat.slug}
+                  </p>
+                </div>
+              </div>
+
+              {/* 元数据网格 */}
+              <dl className="flex flex-col gap-2.5">
+                <div className="grid grid-cols-[80px_1fr] gap-3">
+                  <dt className="font-sans text-[11px] uppercase tracking-[0.2em] text-ink-text-muted">
+                    排序
+                  </dt>
+                  <dd className="font-sans text-sm text-ink-text">{cat.sort}</dd>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-3">
+                  <dt className="font-sans text-[11px] uppercase tracking-[0.2em] text-ink-text-muted">
+                    描述
+                  </dt>
+                  <dd className="font-sans text-sm text-ink-text">
                     {cat.description || '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(cat)}
-                        className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-accent"
-                        aria-label={`编辑分类 ${cat.name}`}
-                      >
-                        <Pencil className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(cat)}
-                        className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-red-500"
-                        aria-label={`删除分类 ${cat.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-sm text-text-muted">
-                  暂无分类
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </dd>
+                </div>
+              </dl>
+
+              {/* 操作区 */}
+              <div className="mt-auto flex gap-2 border-t border-[var(--penjing-border-hairline)] pt-3.5">
+                <button
+                  type="button"
+                  onClick={() => openEdit(cat)}
+                  className="inline-flex items-center gap-1.5 border border-[var(--penjing-border-fine)] px-3 py-1.5 font-sans text-xs uppercase tracking-[0.15em] text-ink-text-secondary transition-colors hover:border-gold hover:text-gold-deep"
+                  aria-label={`编辑分类 ${cat.name}`}
+                >
+                  <Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(cat)}
+                  className="inline-flex items-center gap-1.5 border border-state-error/30 px-3 py-1.5 font-sans text-xs uppercase tracking-[0.15em] text-state-error transition-colors hover:border-state-error hover:bg-state-error/5"
+                  aria-label={`删除分类 ${cat.name}`}
+                >
+                  <Trash2 className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+                  删除
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="border border-[var(--penjing-border-fine)] bg-paper-warm px-4 py-16 text-center font-sans text-sm text-ink-text-muted">
+          暂无分类
+        </div>
+      )}
 
       {/* 新增/编辑弹窗（WCAG 4.1.2 / 2.1.2：role=dialog + aria-modal + Esc 关闭） */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-primary-dark/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-ink-deepest/60 backdrop-blur-sm"
             onClick={() => setModalOpen(false)}
             aria-hidden="true"
           />
           <div
-            className="relative w-full max-w-lg border border-text-muted/15 bg-background p-8"
+            className="relative w-full max-w-lg border border-[var(--penjing-border-fine)] bg-paper p-8 shadow-[var(--penjing-shadow-overlay)]"
             role="dialog"
             aria-modal="true"
             aria-label={editing ? '编辑分类' : '新增分类'}
           >
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="font-serif text-2xl text-primary">
-                {editing ? '编辑分类' : '新增分类'}
-              </h2>
+              <div>
+                <span className="eyebrow-label">{editing ? '编辑' : '新增'}</span>
+                <h2 className="display-card mt-1 text-ink">
+                  {editing ? '编辑分类' : '新增分类'}
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="text-text-light hover:text-primary"
+                className="text-ink-text-secondary transition-colors hover:text-ink"
                 aria-label="关闭弹窗"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -400,7 +418,10 @@ export default function AdminCategoriesPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5" aria-label={editing ? '编辑分类表单' : '新增分类表单'}>
               {error && (
-                <div className="border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-600" role="alert">
+                <div
+                  className="border border-state-error/40 bg-state-error/5 px-4 py-2 font-sans text-sm text-state-error"
+                  role="alert"
+                >
                   {error}
                 </div>
               )}
@@ -425,14 +446,14 @@ export default function AdminCategoriesPage() {
                   type="text"
                   value={form.slug}
                   onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
-                  className={cn(inputClass, editing && 'cursor-not-allowed bg-text-muted/5')}
+                  className={cn(inputClass, editing && 'cursor-not-allowed bg-paper-aged/50')}
                   placeholder="如：conifers"
                   required
                   readOnly={!!editing}
                   aria-describedby={editing ? 'slug-hint' : undefined}
                 />
                 {editing && (
-                  <p id="slug-hint" className="mt-1 text-xs text-text-muted">
+                  <p id="slug-hint" className="mt-1 font-sans text-xs text-ink-text-muted">
                     标识创建后不可修改
                   </p>
                 )}
@@ -454,7 +475,7 @@ export default function AdminCategoriesPage() {
               <div>
                 <span className="label-luxury">封面图片</span>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                  <div className="relative flex h-28 w-40 items-center justify-center overflow-hidden rounded border border-text-muted/20 bg-primary-dark/10">
+                  <div className="relative flex h-28 w-40 items-center justify-center overflow-hidden border border-[var(--penjing-border-fine)] bg-paper-aged">
                     {form.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -463,18 +484,18 @@ export default function AdminCategoriesPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex flex-col items-center gap-1 text-text-muted/50">
+                      <div className="flex flex-col items-center gap-1 text-ink-text-faint">
                         <ImageIcon
                           className="h-8 w-8"
                           strokeWidth={1.5}
                           aria-hidden="true"
                         />
-                        <span className="text-xs">暂无封面</span>
+                        <span className="font-sans text-xs">暂无封面</span>
                       </div>
                     )}
                   </div>
                   <div className="flex flex-col items-start gap-2">
-                    <label className="flex cursor-pointer items-center gap-2 border border-text-muted/30 px-4 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent">
+                    <label className="flex cursor-pointer items-center gap-2 border border-[var(--penjing-border-fine)] px-4 py-2 font-sans text-xs uppercase tracking-[0.15em] text-ink-text-secondary transition-colors hover:border-gold hover:text-gold-deep">
                       {uploading ? (
                         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                       ) : (
@@ -495,12 +516,12 @@ export default function AdminCategoriesPage() {
                       <button
                         type="button"
                         onClick={() => setForm((p) => ({ ...p, coverImage: '' }))}
-                        className="text-xs text-text-muted underline transition-colors hover:text-red-500"
+                        className="font-sans text-xs text-ink-text-muted underline transition-colors hover:text-state-error"
                       >
                         移除封面
                       </button>
                     )}
-                    <p className="max-w-[220px] text-xs text-text-muted">
+                    <p className="max-w-[220px] font-sans text-xs text-ink-text-muted">
                       建议尺寸 800×1000 像素以上，JPG/PNG/WebP 格式。
                     </p>
                   </div>
@@ -511,14 +532,14 @@ export default function AdminCategoriesPage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="border border-text-muted/30 px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-text-light transition-colors hover:border-text-light"
+                  className="btn-outline-gold"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-primary px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light disabled:opacity-50"
+                  className="btn-gold disabled:opacity-50"
                 >
                   {saving ? '保存中…' : '保存'}
                 </button>

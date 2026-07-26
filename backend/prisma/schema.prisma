@@ -62,25 +62,34 @@ model Category {
 
 // 盆景商品
 model Bonsai {
-  id         Int       @id @default(autoincrement())
-  name       String    @db.VarChar(100)
-  slug       String    @unique @db.VarChar(120)
-  description String   @db.Text
-  price      Decimal   @db.Decimal(10, 2)
-  stock      Int       @default(0)
-  origin     String    @db.VarChar(100) // 产地
-  year       Int // 年份
-  treeAge    Int?      @map("tree_age") // 树龄
-  height     Int? // 高度(cm)
-  width      Int? // 宽度(cm)
-  video      String?   @db.VarChar(500) // 盆景展示视频 URL（可选）
-  categoryId Int       @map("category_id")
-  status     Int       @default(1) // 1上架 0下架
-  isFeatured Boolean   @default(false) @map("is_featured")
-  viewCount  Int       @default(0) @map("view_count")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at") // 软删除
+  id                  Int       @id @default(autoincrement())
+  name                String    @db.VarChar(100)
+  slug                String    @unique @db.VarChar(120)
+  catalogNumber       String?   @unique @db.VarChar(50) @map("catalog_number") // 藏品编号
+  description         String    @db.Text
+  artisticDescription String?   @db.Text @map("artistic_description") // 艺术描述/鉴赏
+  era                 String?   @db.VarChar(50) @map("era") // 年代/创作时期
+  material            String?   @db.VarChar(100) @map("material") // 材质/树种
+  potDescription      String?   @db.VarChar(255) @map("pot_description") // 盆器描述
+  canopyWidth         Int?      @map("canopy_width") // 冠幅(cm)
+  dimensions          String?   @db.VarChar(100) @map("dimensions") // 整体尺寸描述
+  provenance          String?   @db.Text @map("provenance") // 来源/传承
+  exhibitions         Json?     @map("exhibitions") // 参展记录 JSON 数组
+  price               Decimal   @db.Decimal(10, 2)
+  stock               Int       @default(0)
+  origin              String    @db.VarChar(100) // 产地
+  year                Int // 年份
+  treeAge             Int?      @map("tree_age") // 树龄
+  height              Int? // 高度(cm)
+  width               Int? // 宽度(cm)
+  video               String?   @db.VarChar(500) // 盆景展示视频 URL（可选）
+  categoryId          Int       @map("category_id")
+  status              Int       @default(1) // 1上架 0下架
+  isFeatured          Boolean   @default(false) @map("is_featured")
+  viewCount           Int       @default(0) @map("view_count")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at") // 软删除
 
   category  Category     @relation(fields: [categoryId], references: [id])
   images    BonsaiImage[]
@@ -112,18 +121,44 @@ model SiteSetting {
   @@map("site_settings")
 }
 
-// 站点布局（主页可配置区块，sections 为 JSON 数组）
-// 一个 key（如 "homepage"）可对应多条记录，但同一时刻仅一条 isActive=true
+// 站点布局（可配置区块，sections 为 JSON 数组）
+// 一个 key（如 "homepage" / "collection" / "detail"）唯一对应一条记录
+// sections = 已发布版本；draftSections = 编辑中草稿（可空）
+// 设计：双字段方案——保存草稿仅写 draftSections，发布时把 draftSections 复制到 sections 并清空
 model SiteLayout {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique @db.VarChar(50) // 布局键，如 "homepage"
-  sections  Json     // 区块配置数组：[{ id, type, title, subtitle, visible, config, order }]
-  isActive  Boolean  @default(false) @map("is_active") // 是否当前激活的布局
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             Int       @id @default(autoincrement())
+  key            String    @unique @db.VarChar(50) // 布局键，如 "homepage" / "collection" / "detail"
+  sections       Json      // 已发布区块配置数组：[{ id, type, title, subtitle, visible, config, order }]
+  draftSections  Json?     @map("draft_sections") // 编辑中草稿（null 表示无未发布草稿）
+  draftUpdatedAt DateTime? @map("draft_updated_at") // 草稿最后自动保存时间
+  isActive       Boolean   @default(false) @map("is_active") // 是否当前激活的布局
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@map("site_layouts")
+}
+
+// 站点资源（图集管理）
+// 上传图片时同步写入此表，用于图集面板列出/检索/删除
+// 与 site_layouts 的 sections 解耦：sections.config 中的图片 URL 引用本表 url 字段
+model SiteAsset {
+  id        Int      @id @default(autoincrement())
+  url       String   @unique @db.VarChar(500) // 访问 URL（相对路径，如 /uploads/xxx.jpg）
+  filename  String   @db.VarChar(255) // 文件名（UUID + 扩展名）
+  mimeType  String   @db.VarChar(50) @map("mime_type") // image/jpeg | image/png | image/webp | video/mp4 ...
+  size      Int // 文件大小（字节）
+  width     Int? // 图片宽度（视频为 null）
+  height    Int? // 图片高度（视频为 null）
+  duration  Int? // 视频时长（秒，图片为 null）
+  alt       String?  @db.VarChar(200) // 替代文本（可空）
+  category  String   @default("image") @db.VarChar(20) // image | video
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([createdAt])
+  @@map("site_assets")
 }
 
 // 盆景图片

@@ -1,4 +1,5 @@
 // 首页区块：分类导航
+// 东方雅致·墨绿+金色设计系统
 
 'use client';
 
@@ -11,17 +12,20 @@ import { resolveImageUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/Loading';
 import type { Category, HomeSection } from '@/lib/types';
 
-// 分类无封面时的渐变兜底（不再使用随机图，避免与真实封面混淆）
+// 分类无封面时的渐变兜底（使用 penjing 色阶）
 const CATEGORY_FALLBACK_GRADIENTS = [
-  'from-primary-dark to-primary',
-  'from-primary to-primary-light',
-  'from-accent/40 to-accent/10',
-  'from-text-muted/60 to-text-muted/20',
+  'from-ink-deep to-ink',
+  'from-ink to-ink-mid',
+  'from-gold/30 to-gold/5',
+  'from-ink-soft/60 to-ink-soft/20',
 ];
 
 interface CategoriesSectionProps {
   section: HomeSection;
 }
+
+// penjing 缓动曲线
+const EASE_SOFT = [0.22, 1, 0.36, 1] as const;
 
 export function CategoriesSection({ section }: CategoriesSectionProps) {
   const limit = (section.config.limit as number) || 4;
@@ -41,11 +45,16 @@ export function CategoriesSection({ section }: CategoriesSectionProps) {
   const displayCategories = (categories || []).slice(0, limit);
 
   return (
-    <section className="bg-primary-dark py-20 text-background md:py-28">
-      <div className="container-luxury">
+    <section
+      aria-label={title}
+      className="section-aged texture-paper py-20 md:py-28"
+    >
+      <div className="container-penjing">
         <div className="mb-12 text-center md:mb-16">
-          <span className="section-eyebrow justify-center">{eyebrow}</span>
-          <h2 className="font-serif text-4xl text-background md:text-5xl">{title}</h2>
+          <div className="flex justify-center">
+            <span className="eyebrow-with-line">{eyebrow}</span>
+          </div>
+          <h2 className="display-section text-ink-text">{title}</h2>
         </div>
 
         {categories ? (
@@ -56,15 +65,16 @@ export function CategoriesSection({ section }: CategoriesSectionProps) {
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: i * 0.1 }}
+                transition={{ duration: 0.6, delay: i * 0.1, ease: EASE_SOFT }}
               >
                 <Link
                   href={`/categories/${cat.slug}`}
-                  className="group relative block aspect-[3/4] overflow-hidden"
+                  className="group relative block aspect-[3/4] overflow-hidden bg-ink-deep shadow-penjing-static transition-shadow duration-500 hover:shadow-penjing-hover"
+                  aria-label={`查看分类：${cat.name}`}
                 >
                   {cat.coverImage ? (
                     <div
-                      className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110"
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.2s] ease-penjing-soft group-hover:scale-110"
                       style={{
                         backgroundImage: `url(${resolveImageUrl(cat.coverImage)})`,
                       }}
@@ -74,22 +84,24 @@ export function CategoriesSection({ section }: CategoriesSectionProps) {
                       className={`absolute inset-0 bg-gradient-to-br ${CATEGORY_FALLBACK_GRADIENTS[i % CATEGORY_FALLBACK_GRADIENTS.length]}`}
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/90 via-primary-dark/30 to-transparent transition-all duration-500 group-hover:from-primary-dark/95" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink-deepest/90 via-ink-deep/30 to-transparent transition-all duration-500 group-hover:from-ink-deepest/95" />
                   <div className="absolute inset-x-0 bottom-0 p-6">
                     <TreePine
-                      className="mb-3 h-6 w-6 text-accent"
+                      className="mb-3 h-6 w-6 text-gold-bright"
                       strokeWidth={1.5}
+                      aria-hidden="true"
                     />
-                    <h3 className="font-serif text-2xl text-background">
-                      {cat.name}
-                    </h3>
+                    <span className="catalog-number mb-2 block text-gold-muted">
+                      №.{String(i + 1).padStart(3, '0')}
+                    </span>
+                    <h3 className="display-card text-paper">{cat.name}</h3>
                     {showDescription && cat.description && (
-                      <p className="mt-2 line-clamp-2 text-xs text-background/60">
+                      <p className="body-caption mt-2 line-clamp-2 text-paper/60">
                         {cat.description}
                       </p>
                     )}
-                    <span className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-accent opacity-0 transition-all duration-500 group-hover:opacity-100">
-                      查看更多 <ArrowRight className="h-3 w-3" />
+                    <span className="mt-4 inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-gold-bright opacity-0 transition-all duration-500 group-hover:opacity-100">
+                      查看更多 <ArrowRight className="h-3 w-3" aria-hidden="true" />
                     </span>
                   </div>
                 </Link>
