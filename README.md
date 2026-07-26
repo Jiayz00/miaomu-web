@@ -16,27 +16,24 @@
 
 | 版本 | 发布日期 | 类型 | 摘要 | 详情 |
 |------|----------|------|------|------|
-| [v1.3.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.3.0) | 2026-07-25 | MINOR | 平台体验优化（聊天 / 用户管理 / 主页布局 / 分类 / 数据看板） | [查看变更](CHANGELOG.md#v130---2026-07-25) |
+| [v1.4.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.4.0) | 2026-07-27 | MINOR | 东方雅致 UI 重构 / 策展字段 / 站点编辑器 / 性能安全优化 | [查看变更](CHANGELOG.md#v140---2026-07-27) |
 | [v1.2.2](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.2) | 2026-07-25 | PATCH | CI 修复 / 中文 slug 404 / 聊天 WebSocket / 图片 URL / shell CRLF | [查看变更](CHANGELOG.md#v122---2026-07-25) |
 | [v1.2.1](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.1) | 2026-07-24 | PATCH | 服务器实测复测修复（SSR / ORB / 限流 / a11y） | [查看变更](CHANGELOG.md#v121---2026-07-24) |
 | [v1.2.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.2.0) | 2026-07-24 | MINOR | 管理端布局编辑 / 视频上传 / 收藏筛选 / UI 全面优化 | [查看变更](CHANGELOG.md#v120---2026-07-24) |
 | [v1.1.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.1.0) | 2026-07-22 | MINOR | 十轮严格审查修复（安全 / QA / 性能 / a11y / DevOps） | [查看变更](CHANGELOG.md#v110---2026-07-22) |
 | [v1.0.0](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.0.0) | 2026-07-20 | MAJOR | 盆景艺术展示与销售平台全栈首版 | [查看变更](CHANGELOG.md#v100---2026-07-20) |
 
-### v1.3.0 更新要点
+### v1.4.0 更新要点
 
-- **新增** 聊天管理筛选与内容搜索（按盆景名称、用户名、时间、消息内容组合筛选，字段均非必填）
-- **新增** 用户活动时间与登录 IP 记录，管理端用户列表展示
-- **新增** 管理员角色升降级与任意用户（含管理员）密码重置
-- **新增** 主页布局 WordPress 式可视化编辑器（拖拽排序、上传图片、友好文案）
-- **新增** 数据看板自定义时间区间选择器
-- **修复** 聊天会话连接状态显示"连接中"、盆景图片未显示、侧边栏显示 `用户#N` 占位符
-- **修复** 聊天历史消息 `TypeError: b is not iterable` 与 WebSocket 无法收发（`/chat` namespace 对齐 + polling fallback）
-- **修复** 我的收藏页盆景名称/链接显示 `undefined`
-- **修复** 分类封面图片未显示
-- **优化** `AGENTS.md` 新增上下文压缩恢复规范，要求每个任务维护 `todo.md` + `session-log.md`，防止进度丢失
+- **新增** 全新"东方雅致·墨绿+金色"设计系统，全部用户端/管理端页面重构，Lenis 平滑滚动 + 滚动动效
+- **新增** Bonsai 9 个策展字段（catalogNumber / artisticDescription / era / material / potDescription / canopyWidth / dimensions / provenance / exhibitions）
+- **新增** 站点编辑器草稿/发布/预览工作流、SiteAsset 图集管理、10 种区块类型
+- **优化** bonsais 列表 SSR、next/image 首屏 priority、Redis 缓存、字段精简、Cache-Control
+- **安全** URL 格式校验、Docker 端口收敛为 127.0.0.1、slug 解码异常处理、JWT/RBAC 加固
+- **体验** FilterPanel 可折叠搜索、侧边栏 sticky/滚轮隔离、焦点陷阱、reduced-motion 支持
+- **修复** 首页 design-assets 404、移动端首页横向溢出、后端列表 Over-fetching
 
-完整变更请跳转：[CHANGELOG.md#v130---2026-07-25](CHANGELOG.md#v130---2026-07-25)
+完整变更请跳转：[CHANGELOG.md#v140---2026-07-27](CHANGELOG.md#v140---2026-07-27)
 
 ### v1.2.2 更新要点
 

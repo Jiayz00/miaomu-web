@@ -8,7 +8,7 @@
 
 ## 目录
 
-- [v1.3.0](#v130---2026-07-25) — 平台体验优化（聊天 / 用户管理 / 主页布局 / 分类 / 数据看板）
+- [v1.4.0](#v140---2026-07-27) — 东方雅致 UI 重构 / 策展字段 / 站点编辑器 / 性能安全优化
 - [v1.2.2](#v122---2026-07-25) — CI 修复 / 中文 slug 404 / 聊天 WebSocket / 图片 URL / shell CRLF
 - [v1.2.1](#v121---2026-07-24) — 服务器实测复测修复（SSR / ORB / 限流 / a11y）
 - [v1.2.0](#v120---2026-07-24) — 管理端布局编辑 / 视频上传 / 收藏筛选 / UI 全面优化
@@ -17,75 +17,65 @@
 
 ---
 
-## [v1.3.0] - 2026-07-25
+## [v1.4.0] - 2026-07-27
 
-> **Tag**: [`v1.3.0`](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.3.0)
-> **Release**: [v1.3.0 — 平台体验优化](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.3.0)
-> **范围**：MINOR 版本，基于用户反馈对聊天、用户管理、主页布局、分类封面、数据看板进行全面体验优化，并已在服务器实测通过
+> **Tag**: [`v1.4.0`](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.4.0)
+> **Release**: [v1.4.0 — 东方雅致 UI 重构 / 策展字段 / 站点编辑器 / 性能安全优化](https://github.com/Jiayz00/miaomu-web/releases/tag/v1.4.0)
+> **范围**：MINOR 版本，全新 UI 设计系统、盆景策展字段、站点编辑器草稿工作流、性能与安全优化
 
 ### 新增（Added）
 
-- **聊天管理筛选与内容搜索**
-  - `backend/src/modules/chat/chat.service.ts`：后端增加按盆景名称、用户名、时间范围、消息内容等组合筛选接口，所有字段均非必填
-  - `frontend/src/app/admin/chat/page.tsx`：管理端聊天页增加可展开/收起的筛选面板与搜索框，支持非必填组合条件，响应式布局避免重叠
-- **用户活动时间与登录 IP 记录**
-  - `backend/prisma/schema.prisma`：新增 `lastActiveAt`、`lastLoginAt`、`lastLoginIp` 等字段
-  - `backend/src/modules/auth/auth.service.ts`：登录时记录最后登录时间与 IP
-  - `frontend/src/app/admin/users/page.tsx`：用户列表展示最后登录时间、登录 IP、最后活动时间
-- **管理员角色升降级与任意用户密码重置**
-  - `backend/src/modules/users/users.service.ts`：管理员可重置任意用户（含其他管理员）密码；支持将普通用户提升为管理员或降级
-  - `frontend/src/app/admin/users/page.tsx`：增加角色切换按钮、密码重置弹窗，操作后刷新列表
-- **主页布局 WordPress 式可视化编辑器**
-  - `frontend/src/app/admin/layout-editor/`：新增可视化布局编辑器，支持拖拽排序 section、增删区块、上传图片、配置文案
-  - `frontend/src/components/home/`：首页 `HomeRenderer` 按保存配置动态渲染各 section
-  - 界面文案去后端化，使用"大图区""精选区""故事区"等友好名称
-- **数据看板自定义时间区间**
-  - `frontend/src/app/admin/dashboard/page.tsx`：新增"自定义"日期范围选择器（开始/结束日期）
-  - `backend/src/modules/analytics/analytics.controller.ts` / `analytics.service.ts`：analytics 接口支持 `startDate` / `endDate` 参数
-  - 优化图表卡片网格布局，使数据展示更整齐
-
-### 修复（Fixed）
-
-- **[P0] 聊天会话连接状态 / 图片 / 真实用户名**
-  - `frontend/src/hooks/use-socket.ts`：在 `connect` / `disconnect` / `reconnect` 事件中同步 `socket.connected` 状态，解决"连接中…"常驻问题
-  - 聊天相关组件统一使用 `getMainImage(bonsai)` 解析盆景主图 URL，修复图片空白
-  - 聊天侧边栏与列表项从 `room.user.username` 读取真实用户名，替换 `用户#N` 占位符
-- **[P0] 聊天历史消息 `TypeError: b is not iterable` / WebSocket 无法收发**
-  - `frontend/src/components/ChatWidget.tsx`：引入 `PaginatedResponse`，历史消息从分页对象取 `res.data?.list ?? []`
-  - `frontend/src/lib/socket.ts`：socket URL 强制追加 `/chat` namespace 与后端 `ChatGateway` 对齐；配置 `transports: ['websocket', 'polling']` 作为反向代理不支持 WebSocket upgrade 时的兜底
-- **[P0] 我的收藏页渲染异常（名称/链接 undefined）**
-  - `frontend/src/hooks/use-favorites.ts`：将后端返回的 `{ list: [{ bonsai: Bonsai }] }` 正确映射为 `Bonsai[]`
-  - `backend/src/modules/favorites/favorites.service.ts`：补全 `bonsai` select 字段（images、slug、name、price 等），确保前端渲染所需数据完整
-- **[P1] 分类封面图片未显示**
-  - `backend/src/modules/categories/categories.service.ts`：分类 CRUD 支持 `coverImage` 字段
-  - `frontend/src/app/admin/categories/page.tsx`：分类管理页支持上传并显示封面图
+- 前端：全新"东方雅致·墨绿+金色"设计系统
+  - `frontend/src/app/globals.css`：22+ 颜色 tokens、4 级阴影/边框/圆角、9 级间距、3 条曲线、6 个关键帧动画
+  - `frontend/tailwind.config.ts`：完整映射为 Tailwind 主题 token
+  - 新增 `SmoothScrollProvider`：Lenis 平滑滚动 + 滚动进度条 + scroll-reveal
+  - 全部用户端/管理端页面重构（约 42 个 .tsx 文件）
+- 后端：Bonsai 9 个策展字段
+  - `catalogNumber` / `artisticDescription` / `era` / `material` / `potDescription` / `canopyWidth` / `dimensions` / `provenance` / `exhibitions`
+  - `backend/prisma/migrations/20260728000001_add_bonsai_curator_fields`
+- 站点编辑器：草稿/发布/预览工作流
+  - `backend/prisma/migrations/20260728000000_add_draft_and_site_assets`
+  - 新增 `SiteAsset` 模型与图集管理 API
+  - 前端 `layout-editor` 对接草稿工作流，2s debounce 自动保存
 
 ### 优化（Changed）
 
-- **`AGENTS.md`**
-  - 新增"上下文压缩恢复（防死循环）"专节，规定会话开始时必须读取 `AGENTS.md → todo.md → session-log.md`
-  - 要求每个任务目录维护 `session-log.md`，每次操作后追加记录与状态快照
-  - 明确禁止凭记忆判断状态、禁止重复执行已完成步骤
-- **`docs/plans/enhance-platform-experience/`**
-  - 新增 `todo.md` 与 `session-log.md`，作为本次平台体验优化任务的进度真相来源
+- 性能
+  - `bonsais` 列表页 SSR 改造（Server Component + 客户端岛屿）
+  - `next/image` 首屏 priority 优化
+  - Redis 缓存、异步 viewLog、字段精简、Cache-Control 头
+- 体验
+  - `FilterPanel` 可折叠搜索、侧边栏 sticky/滚轮隔离
+  - 焦点陷阱 hook、`reduced-motion` 支持
+  - 全站硬编码 rgba 颜色替换为设计系统 token
+
+### 安全（Security）
+
+- DTO URL 格式校验，防止 `javascript:` 伪协议
+- Docker Compose 端口收敛为 `127.0.0.1`
+- slug 解码异常收敛为 400
+- JWT/RBAC 加固
+
+### 修复（Fixed）
+
+- 首页 `design-assets` 图片 404
+- 移动端首页横向溢出
+- 后端列表 Over-fetching
 
 ### 部署（Deployment）
 
-- 服务器部署位置：`/root/jia/penjing`（5 个容器 healthy）
-- 数据卷保留：`penjing-mysql` / `penjing-redis` 数据未受影响
-- 健康检查：`https://miaomu.jiayyy.cn/api/v1/health/live` 返回 200
-- 浏览器全功能测试：用户端首页 / 列表 / 详情 / 登录 / 收藏 / 询价聊天；管理端 dashboard / bonsais / categories / chat / users / layout-editor / settings；移动端 375x812 核心路径全部通过
-- 控制台无 error，API 无 5xx，磁盘可用约 27G
-
-### 已知问题（Known Issues）
-
-- **[P2]** `frontend/src/app/admin/page.tsx`（缺失）：直接访问 `/admin/login` 返回 404，管理端实际入口为 `/admin/dashboard`（未登录时会重定向到登录页）。功能不受影响，待后续决定是否增加统一入口重定向。
+- 服务器部署位置：`/root/jia/penjing`（5 容器 healthy）
+- 健康检查：`/api/v1/health/live` 返回 200
+- 浏览器全功能测试：用户端 / 管理端 / 移动端核心路径通过
+- 控制台无 error，API 无 5xx
 
 ### 提交记录
 
 | Hash | 类型 | 说明 |
 |------|------|------|
-| `48eb233` | feat | 平台体验优化：聊天修复 / 筛选搜索 / 用户管理增强 / 数据看板 / 主页布局 / 分类封面 |
+| `f9e225e` | feat(release) | v1.4.0 东方雅致 UI 重构、策展字段、站点编辑器与性能安全优化 |
+| `145dd4ff` | release | 合并 release/v1.4.0 到 main |
+| `9949dbc6` | chore | 合并 release/v1.4.0 回 develop |
 
 ---
 
