@@ -13,7 +13,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Heart, ArrowRight, SlidersHorizontal, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight, SlidersHorizontal, X } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { BonsaiGridSkeleton } from '@/components/Loading';
 import { BonsaiCard } from '@/components/BonsaiCard';
@@ -153,36 +154,74 @@ function FavoritesContent() {
   }, [filter]);
 
   return (
-    <div className="pt-28">
-      <div className="container-luxury py-12 text-center">
-        <span className="section-eyebrow justify-center">我的珍藏</span>
-        <h1 className="font-serif text-4xl text-primary md:text-5xl">我的收藏</h1>
-        <p className="mt-3 text-sm text-text-light">
-          {list.length > 0
-            ? `已收藏 ${list.length} 件盆景${hasActiveFilter ? ` · 筛选出 ${filteredList.length} 件` : ''}`
-            : '您还没有收藏任何盆景'}
-        </p>
-      </div>
+    <div className="pt-[72px]" aria-label="我的收藏">
+      {/* 引言带：eyebrow + display-section + body-large 副标题 */}
+      <section className="section-paper texture-paper border-b border-[var(--penjing-border-hairline)]">
+        <div className="container-penjing py-16 md:py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="eyebrow-with-line">
+              <span className="eyebrow-label">藏品目录</span>
+            </span>
+            <h1 className="display-section text-ink">心之所藏</h1>
+            <p className="body-large mt-5 max-w-[560px] text-ink-text-secondary">
+              您所珍爱的盆景皆陈列于此。按类、按龄、按价编目，便于随时翻阅鉴藏。
+            </p>
+            <span className="mt-7 block h-px w-16 bg-gold" aria-hidden="true" />
+            <div className="mt-7 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-ink-text-muted">
+                  在册
+                </span>
+                <span className="font-serif text-[15px] text-ink-text">
+                  {list.length} 件
+                </span>
+              </div>
+              {hasActiveFilter && (
+                <div className="flex items-baseline gap-2">
+                  <span className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-ink-text-muted">
+                    本辑
+                  </span>
+                  <span className="font-serif text-[15px] text-ink-text">
+                    筛选出 {filteredList.length} 件
+                  </span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </section>
 
-      <div className="container-luxury pb-28">
+      {/* 主布局：sticky 左侧 FilterPanel + 右侧盆景网格 */}
+      <section
+        className="container-penjing py-14 md:py-20"
+        aria-label="藏品目录与筛选"
+      >
         {isLoading ? (
           <BonsaiGridSkeleton count={4} />
         ) : list.length === 0 ? (
+          // 空状态：印章装饰 + 文案 + btn-gold
           <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
-            <Heart className="mb-4 h-12 w-12 text-text-muted/30" strokeWidth={1} />
-            <p className="font-serif text-2xl text-primary">收藏夹空空如也</p>
-            <p className="mt-2 text-sm text-text-muted">
+            <span
+              className="seal-cinnabar mb-8 h-16 w-16 text-2xl"
+              aria-hidden="true"
+            >
+              藏
+            </span>
+            <p className="display-card text-ink">尚未收藏任何藏品</p>
+            <p className="body-caption mt-3">
               浏览盆景，点击收藏您心仪的藏品
             </p>
-            <Link
-              href="/bonsais"
-              className="mt-8 inline-flex items-center gap-2 border border-accent px-8 py-3.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
-            >
-              去逛逛 <ArrowRight className="h-4 w-4" />
+            <Link href="/bonsais" className="btn-gold mt-8">
+              去浏览盆景
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr] lg:gap-12">
+          <div className="flex gap-12 lg:gap-16">
             {/* 左侧：筛选栏 */}
             <FavoritesFilterPanel
               categories={categories || []}
@@ -195,27 +234,27 @@ function FavoritesContent() {
             />
 
             {/* 右侧：网格 */}
-            <div>
+            <div className="min-w-0 flex-1">
               {/* 移动端筛选按钮 + 已选条件概览 */}
-              <div className="mb-6 flex items-center justify-between lg:hidden">
+              <div className="mb-8 flex items-center justify-between lg:hidden">
                 <button
                   type="button"
                   onClick={() => setMobileFilterOpen(true)}
-                  className="flex items-center gap-2 border border-text-muted/30 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-text-light transition-colors hover:border-accent hover:text-accent active:scale-95"
+                  className="flex items-center gap-2 border border-gold px-4 py-2.5 font-sans text-[11px] uppercase tracking-[0.2em] text-gold-deep transition-colors hover:bg-gold hover:text-ink-deepest active:scale-95"
                   aria-label="打开筛选"
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                   筛选
                   {hasActiveFilter && (
                     <span
-                      className="ml-1 inline-flex h-4 min-w-4 items-center justify-center bg-accent px-1 text-[10px] text-primary-dark"
+                      className="ml-1 inline-flex h-4 min-w-4 items-center justify-center bg-gold px-1 text-[10px] text-ink-deepest"
                       aria-label="已启用筛选"
                     >
                       •
                     </span>
                   )}
                 </button>
-                <span className="text-xs text-text-muted">
+                <span className="font-sans text-xs text-ink-text-muted">
                   {filteredList.length} 件
                 </span>
               </div>
@@ -264,7 +303,7 @@ function FavoritesContent() {
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="text-xs text-text-muted underline hover:text-accent hover:no-underline"
+                    className="font-sans text-xs text-ink-text-muted underline transition-colors hover:text-gold-deep hover:no-underline"
                   >
                     清除全部
                   </button>
@@ -272,7 +311,7 @@ function FavoritesContent() {
               )}
 
               {filteredList.length > 0 ? (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 xl:gap-8">
+                <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:gap-10">
                   {filteredList.map((bonsai, i) => (
                     <BonsaiCard
                       key={bonsai.id}
@@ -280,20 +319,22 @@ function FavoritesContent() {
                       index={i}
                       favorited={favoriteMap[bonsai.id] ?? true}
                       onFavoriteToggle={handleFavoriteToggle}
+                      priority={i < 6}
+                      loading={i < 6 ? 'eager' : 'lazy'}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="flex min-h-[30vh] flex-col items-center justify-center text-center">
-                  <X className="mb-3 h-8 w-8 text-text-muted/40" strokeWidth={1.5} />
-                  <p className="font-serif text-xl text-primary">没有符合条件的藏品</p>
-                  <p className="mt-2 text-sm text-text-muted">
+                  <X className="mb-3 h-8 w-8 text-ink-text-faint" strokeWidth={1.5} />
+                  <p className="display-card text-ink">没有符合条件的藏品</p>
+                  <p className="body-caption mt-2">
                     尝试调整筛选条件或重置筛选
                   </p>
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="mt-6 border border-accent px-6 py-2.5 text-xs uppercase tracking-[0.2em] text-accent transition-colors hover:bg-accent hover:text-primary"
+                    className="btn-outline-gold mt-6"
                   >
                     重置筛选
                   </button>
@@ -302,7 +343,7 @@ function FavoritesContent() {
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -310,13 +351,13 @@ function FavoritesContent() {
 // 筛选条件 chip
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 border border-text-muted/20 bg-surface px-3 py-1 text-xs text-text-light">
+    <span className="inline-flex items-center gap-1.5 border border-[var(--penjing-border-fine)] bg-paper-warm px-3 py-1 font-sans text-xs text-ink-text-secondary">
       <span>{label}</span>
       <button
         type="button"
         onClick={onClear}
         aria-label={`移除筛选 ${label}`}
-        className="text-text-muted transition-colors hover:text-accent"
+        className="text-ink-text-muted transition-colors hover:text-gold-deep"
       >
         <X className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
       </button>

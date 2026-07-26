@@ -1,9 +1,11 @@
-// 全局 Provider：TanStack Query + 客户端挂载 hook
+// 全局 Provider：TanStack Query + 平滑滚动 + 客户端挂载 hook
 
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MotionConfig } from 'framer-motion';
+import { SmoothScrollProvider } from '@/components/SmoothScrollProvider';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -20,7 +22,11 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <MotionConfig reducedMotion="user">
+        <SmoothScrollProvider>{children}</SmoothScrollProvider>
+      </MotionConfig>
+    </QueryClientProvider>
   );
 }
 

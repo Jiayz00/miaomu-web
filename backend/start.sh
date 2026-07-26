@@ -13,10 +13,10 @@ set -e
 
 echo "🚀 启动盆景后端..."
 
-# 推送 schema（不带 --accept-data-loss，避免无差别丢数据）
-echo "📦 同步数据库 schema..."
-npx prisma db push || {
-  echo "❌ 数据库 schema 同步失败"
+# 应用数据库迁移（生产环境使用 migrate deploy，不丢数据）
+echo "📦 应用数据库迁移..."
+npx prisma migrate deploy || {
+  echo "❌ 数据库迁移失败"
   exit 1
 }
 

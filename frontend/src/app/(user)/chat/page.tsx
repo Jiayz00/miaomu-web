@@ -3,7 +3,9 @@
 // 响应式优化：
 // - 移动端（< md）默认显示会话列表，点击会话切换到聊天界面，带返回按钮
 // - 桌面端左右两栏并排显示
-// - 新增筛选/搜索面板：盆景名称、用户名、消息关键字、时间区间，支持收起/展开
+// - 筛选/搜索面板：盆景名称、用户名、消息关键字、时间区间，支持收起/展开
+//
+// 东方雅致设计系统：section-paper + container-penjing + eyebrow-with-line + display-section
 
 'use client';
 
@@ -11,6 +13,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import {
   MessageSquare,
   Plus,
@@ -120,300 +123,327 @@ function ChatPageContent() {
   const activeFilterCount = Object.values(appliedFilters).filter(Boolean).length;
 
   return (
-    <div className="pt-24">
-      <div className="container-luxury py-10">
-        <div className="mb-8 text-center">
-          <span className="section-eyebrow justify-center">私人洽购</span>
-          <h1 className="font-serif text-4xl text-primary md:text-5xl">询价咨询</h1>
-          <p className="mt-3 text-sm text-text-light">
-            与我们的顾问一对一交流，开启收藏之旅
-          </p>
-        </div>
-
-        {/* 筛选/搜索面板 */}
-        <div className="mx-auto mb-4 max-w-6xl">
-          <button
-            type="button"
-            onClick={() => setShowFilters((v) => !v)}
-            className={cn(
-              'flex w-full items-center justify-between border px-4 py-3 text-sm transition-colors md:w-auto',
-              showFilters || activeFilterCount > 0
-                ? 'border-accent bg-accent/5 text-primary'
-                : 'border-text-muted/20 text-text-light hover:border-accent hover:text-accent'
-            )}
-            aria-expanded={showFilters}
+    <div className="pt-[72px]" aria-label="询价咨询">
+      {/* ===== 顶部 hero ===== */}
+      <section className="section-paper texture-paper border-b border-[var(--penjing-border-hairline)]">
+        <div className="container-penjing py-14 md:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="flex items-center gap-2">
-              <Filter className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-              筛选与搜索
-              {activeFilterCount > 0 && (
-                <span className="ml-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-medium text-primary-dark">
-                  {activeFilterCount}
-                </span>
-              )}
+            <span className="eyebrow-with-line">
+              <span className="eyebrow-label">私人洽购</span>
             </span>
-            {showFilters ? (
-              <ChevronUp className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-            ) : (
-              <ChevronDown className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-            )}
-          </button>
-
-          {showFilters && (
-            <div className="mt-3 border border-text-muted/15 bg-surface p-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* 盆景名称 */}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="filter-bonsai-name"
-                    className="text-xs uppercase tracking-wider text-text-muted"
-                  >
-                    盆景名称
-                  </label>
-                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
-                    <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-                    <input
-                      id="filter-bonsai-name"
-                      type="text"
-                      value={filters.bonsaiName}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, bonsaiName: e.target.value }))
-                      }
-                      placeholder="按盆景名称筛选…"
-                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* 用户名 */}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="filter-username"
-                    className="text-xs uppercase tracking-wider text-text-muted"
-                  >
-                    用户名
-                  </label>
-                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
-                    <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-                    <input
-                      id="filter-username"
-                      type="text"
-                      value={filters.username}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, username: e.target.value }))
-                      }
-                      placeholder="按发送者用户名筛选…"
-                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* 开始日期 */}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="filter-start-date"
-                    className="text-xs uppercase tracking-wider text-text-muted"
-                  >
-                    开始日期
-                  </label>
-                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
-                    <Calendar className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-                    <input
-                      id="filter-start-date"
-                      type="date"
-                      value={filters.startDate}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, startDate: e.target.value }))
-                      }
-                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* 结束日期 */}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="filter-end-date"
-                    className="text-xs uppercase tracking-wider text-text-muted"
-                  >
-                    结束日期
-                  </label>
-                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
-                    <Calendar className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-                    <input
-                      id="filter-end-date"
-                      type="date"
-                      value={filters.endDate}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, endDate: e.target.value }))
-                      }
-                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* 消息关键字 */}
-                <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
-                  <label
-                    htmlFor="filter-keyword"
-                    className="text-xs uppercase tracking-wider text-text-muted"
-                  >
-                    消息内容
-                  </label>
-                  <div className="flex items-center gap-2 border border-text-muted/20 px-3 py-2">
-                    <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-                    <input
-                      id="filter-keyword"
-                      type="text"
-                      value={filters.keyword}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, keyword: e.target.value }))
-                      }
-                      placeholder="搜索消息内容关键字…"
-                      className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleApplyFilters}
-                  className="flex items-center gap-2 bg-primary px-5 py-2 text-xs uppercase tracking-[0.15em] text-background transition-colors hover:bg-primary-light"
-                >
-                  <Search className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  搜索
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="flex items-center gap-2 border border-text-muted/30 px-5 py-2 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  重置
-                </button>
-                <p className="text-xs text-text-muted">
-                  至少填写一项即可搜索
-                </p>
-              </div>
-            </div>
-          )}
+            <h1 className="display-section m-0 text-ink">询价咨询</h1>
+            <p className="body-large mt-5 max-w-[560px] text-ink-text-secondary">
+              与我们的顾问一对一交流，开启您的收藏之旅。每条消息皆由加密通道传输，确保洽谈私密。
+            </p>
+            <span className="mt-7 block h-px w-16 bg-gold" aria-hidden="true" />
+          </motion.div>
         </div>
+      </section>
 
-        {/* 聊天容器 */}
-        <div className="mx-auto flex h-[70vh] max-w-6xl overflow-hidden border border-text-muted/15 bg-surface">
-          {/* 左：会话列表（移动端根据视图切换） */}
-          <div
-            className={`flex w-full flex-col border-r border-text-muted/10 md:w-72 ${
-              mobileView === 'chat' ? 'hidden md:flex' : 'flex'
-            }`}
-          >
-            <div className="border-b border-text-muted/10 px-4 py-3">
-              <h2 className="flex items-center gap-2 text-sm font-medium text-primary">
-                <MessageSquare className="h-4 w-4 text-accent" strokeWidth={1.5} />
-                会话列表
-              </h2>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {isLoading ? (
-                <InlineLoading />
-              ) : rooms && rooms.length > 0 ? (
-                rooms.map((room) => (
-                  <ChatRoomItem
-                    key={room.id}
-                    name={room.bonsai?.name || `会话 #${room.id}`}
-                    subtitle={
-                      room.bonsai ? `关于：${room.bonsai.name}` : '一般咨询'
-                    }
-                    time={room.createdAt}
-                    active={room.id === activeRoomId}
-                    onClick={() => handleSelectRoom(room.id)}
-                  />
-                ))
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-                  <Plus className="h-8 w-8 text-text-muted/40" strokeWidth={1} />
-                  <p className="text-sm text-text-muted">
-                    {hasFilters ? '未找到匹配的会话' : '暂无会话'}
-                    <br />
-                    {!hasFilters && '从盆景详情页发起询价'}
-                  </p>
-                  {!hasFilters && (
-                    <Link
-                      href="/bonsais"
-                      className="mt-2 inline-flex items-center gap-2 border border-accent px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-accent transition-all duration-300 hover:bg-accent hover:text-primary"
-                    >
-                      去浏览盆景
-                    </Link>
-                  )}
-                </div>
+      {/* ===== 主体：筛选 + 聊天 ===== */}
+      <section className="section-paper" aria-label="询价会话">
+        <div className="container-penjing py-10 md:py-14">
+          {/* 筛选/搜索面板 */}
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              className={cn(
+                'flex w-full items-center justify-between border px-5 py-3 font-sans text-[12px] uppercase tracking-[0.2em] transition-colors md:w-auto',
+                showFilters || activeFilterCount > 0
+                  ? 'border-gold bg-gold/6 text-gold-deep'
+                  : 'border-[var(--penjing-border-strong)] text-ink-text-secondary hover:border-gold hover:text-gold-deep'
               )}
-            </div>
-          </div>
+              aria-expanded={showFilters}
+            >
+              <span className="flex items-center gap-2.5">
+                <Filter className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                筛选与搜索
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 flex h-5 min-w-[1.25rem] items-center justify-center border border-gold bg-gold px-1.5 font-sans text-[10px] font-medium text-ink-deepest">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </span>
+              {showFilters ? (
+                <ChevronUp className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <ChevronDown className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              )}
+            </button>
 
-          {/* 右：聊天界面（移动端根据视图切换） */}
-          <div
-            className={`flex-1 ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}
-          >
-            {activeRoom && (
-              <div className="flex h-full w-full flex-col">
-                {/* 移动端返回按钮 + 关联盆景 */}
-                <div className="flex items-center gap-3 border-b border-text-muted/10 px-4 py-3 md:px-6">
+            {showFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="mt-4 border border-[var(--penjing-border-fine)] bg-paper-warm p-5 md:p-6"
+              >
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* 盆景名称 */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="filter-bonsai-name"
+                      className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep"
+                    >
+                      盆景名称
+                    </label>
+                    <div className="flex items-center gap-2 border border-[var(--penjing-border-fine)] bg-paper px-3 py-2 transition-colors focus-within:border-gold">
+                      <Search className="h-4 w-4 text-ink-text-faint" strokeWidth={1.5} aria-hidden="true" />
+                      <input
+                        id="filter-bonsai-name"
+                        type="text"
+                        value={filters.bonsaiName}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, bonsaiName: e.target.value }))
+                        }
+                        placeholder="按盆景名称筛选…"
+                        className="flex-1 border-0 bg-transparent font-sans text-sm text-ink-text placeholder:text-ink-text-faint focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 用户名 */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="filter-username"
+                      className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep"
+                    >
+                      用户名
+                    </label>
+                    <div className="flex items-center gap-2 border border-[var(--penjing-border-fine)] bg-paper px-3 py-2 transition-colors focus-within:border-gold">
+                      <Search className="h-4 w-4 text-ink-text-faint" strokeWidth={1.5} aria-hidden="true" />
+                      <input
+                        id="filter-username"
+                        type="text"
+                        value={filters.username}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, username: e.target.value }))
+                        }
+                        placeholder="按发送者用户名筛选…"
+                        className="flex-1 border-0 bg-transparent font-sans text-sm text-ink-text placeholder:text-ink-text-faint focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 开始日期 */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="filter-start-date"
+                      className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep"
+                    >
+                      开始日期
+                    </label>
+                    <div className="flex items-center gap-2 border border-[var(--penjing-border-fine)] bg-paper px-3 py-2 transition-colors focus-within:border-gold">
+                      <Calendar className="h-4 w-4 text-ink-text-faint" strokeWidth={1.5} aria-hidden="true" />
+                      <input
+                        id="filter-start-date"
+                        type="date"
+                        value={filters.startDate}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, startDate: e.target.value }))
+                        }
+                        className="flex-1 border-0 bg-transparent font-sans text-sm text-ink-text focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 结束日期 */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="filter-end-date"
+                      className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep"
+                    >
+                      结束日期
+                    </label>
+                    <div className="flex items-center gap-2 border border-[var(--penjing-border-fine)] bg-paper px-3 py-2 transition-colors focus-within:border-gold">
+                      <Calendar className="h-4 w-4 text-ink-text-faint" strokeWidth={1.5} aria-hidden="true" />
+                      <input
+                        id="filter-end-date"
+                        type="date"
+                        value={filters.endDate}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, endDate: e.target.value }))
+                        }
+                        className="flex-1 border-0 bg-transparent font-sans text-sm text-ink-text focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 消息关键字 */}
+                  <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-4">
+                    <label
+                      htmlFor="filter-keyword"
+                      className="font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep"
+                    >
+                      消息内容
+                    </label>
+                    <div className="flex items-center gap-2 border border-[var(--penjing-border-fine)] bg-paper px-3 py-2 transition-colors focus-within:border-gold">
+                      <Search className="h-4 w-4 text-ink-text-faint" strokeWidth={1.5} aria-hidden="true" />
+                      <input
+                        id="filter-keyword"
+                        type="text"
+                        value={filters.keyword}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, keyword: e.target.value }))
+                        }
+                        placeholder="搜索消息内容关键字…"
+                        className="flex-1 border-0 bg-transparent font-sans text-sm text-ink-text placeholder:text-ink-text-faint focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[var(--penjing-border-hairline)] pt-5">
                   <button
                     type="button"
-                    onClick={handleBackToList}
-                    className="flex items-center justify-center text-text-light transition-colors hover:text-primary md:hidden"
-                    aria-label="返回会话列表"
+                    onClick={handleApplyFilters}
+                    className="btn-ink !px-5 !py-2.5 !text-[11px]"
                   >
-                    <ArrowLeft className="h-5 w-5" />
+                    <Search className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                    搜索
                   </button>
-                  {activeRoom.bonsai && (
-                    <>
-                      <div className="relative h-10 w-10 overflow-hidden bg-primary-dark/10">
-                        {getMainImage(activeRoom.bonsai.images) && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={getMainImage(activeRoom.bonsai.images)}
-                            alt={activeRoom.bonsai.name}
-                            className="h-full w-full object-cover"
-                          />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-primary">
-                          {activeRoom.bonsai.name}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          关于此盆景的咨询
-                        </p>
-                      </div>
-                    </>
-                  )}
-                  {!activeRoom.bonsai && (
-                    <p className="text-sm font-medium text-primary">一般咨询</p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="btn-outline-gold !px-5 !py-2.5 !text-[11px]"
+                  >
+                    <X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                    重置
+                  </button>
+                  <p className="font-sans text-xs text-ink-text-muted">
+                    至少填写一项即可搜索
+                  </p>
                 </div>
-                <div className="flex-1 overflow-hidden">
-                  <ChatWidget
-                    roomId={activeRoomId}
-                    currentUserId={userId}
-                    placeholder="输入您的咨询内容…"
-                  />
-                </div>
-              </div>
-            )}
-            {!activeRoom && (
-              <div className="flex h-full w-full items-center justify-center text-center text-text-muted">
-                <div>
-                  <MessageSquare className="mx-auto mb-3 h-12 w-12 text-text-muted/30" strokeWidth={1} />
-                  <p className="text-sm">选择一个会话开始对话</p>
-                </div>
-              </div>
+              </motion.div>
             )}
           </div>
+
+          {/* 聊天容器 */}
+          <div className="flex h-[70vh] min-h-[520px] overflow-hidden border border-[var(--penjing-border-fine)] bg-paper shadow-[var(--penjing-shadow-static)]">
+            {/* 左：会话列表（移动端根据视图切换） */}
+            <div
+              className={`flex w-full flex-col border-r border-[var(--penjing-border-hairline)] md:w-80 ${
+                mobileView === 'chat' ? 'hidden md:flex' : 'flex'
+              }`}
+            >
+              <div className="border-b border-[var(--penjing-border-hairline)] px-5 py-4">
+                <h2 className="flex items-center gap-2 font-sans text-[11px] font-medium uppercase tracking-[0.25em] text-gold-deep">
+                  <MessageSquare className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  会话列表
+                </h2>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {isLoading ? (
+                  <InlineLoading />
+                ) : rooms && rooms.length > 0 ? (
+                  rooms.map((room) => (
+                    <ChatRoomItem
+                      key={room.id}
+                      name={room.bonsai?.name || `会话 #${room.id}`}
+                      subtitle={
+                        room.bonsai ? `关于：${room.bonsai.name}` : '一般咨询'
+                      }
+                      time={room.createdAt}
+                      active={room.id === activeRoomId}
+                      onClick={() => handleSelectRoom(room.id)}
+                    />
+                  ))
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+                    <Plus className="h-10 w-10 text-ink-text-faint" strokeWidth={1} aria-hidden="true" />
+                    <div>
+                      <p className="display-card text-ink">
+                        {hasFilters ? '未找到匹配的会话' : '暂无会话'}
+                      </p>
+                      <p className="body-caption mt-2">
+                        {!hasFilters && '从盆景详情页发起询价'}
+                      </p>
+                    </div>
+                    {!hasFilters && (
+                      <Link href="/bonsais" className="btn-outline-gold mt-2 !px-5 !py-2.5 !text-[11px]">
+                        去浏览盆景
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 右：聊天界面（移动端根据视图切换） */}
+            <div
+              className={`flex-1 ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}
+            >
+              {activeRoom && (
+                <div className="flex h-full w-full flex-col">
+                  {/* 移动端返回按钮 + 关联盆景 */}
+                  <div className="flex items-center gap-3 border-b border-[var(--penjing-border-hairline)] px-5 py-4 md:px-6">
+                    <button
+                      type="button"
+                      onClick={handleBackToList}
+                      className="flex items-center justify-center text-ink-text-secondary transition-colors hover:text-ink md:hidden"
+                      aria-label="返回会话列表"
+                    >
+                      <ArrowLeft className="h-5 w-5" strokeWidth={1.5} />
+                    </button>
+                    {activeRoom.bonsai && (
+                      <>
+                        <div className="relative h-10 w-10 overflow-hidden bg-ink-deep">
+                          {getMainImage(activeRoom.bonsai.images) && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getMainImage(activeRoom.bonsai.images)}
+                              alt={activeRoom.bonsai.name}
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-serif text-[15px] font-semibold text-ink">
+                            {activeRoom.bonsai.name}
+                          </p>
+                          <p className="font-sans text-xs text-ink-text-muted">
+                            关于此盆景的咨询
+                          </p>
+                        </div>
+                      </>
+                    )}
+                    {!activeRoom.bonsai && (
+                      <p className="font-serif text-[15px] font-semibold text-ink">一般咨询</p>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <ChatWidget
+                      roomId={activeRoomId}
+                      currentUserId={userId}
+                      placeholder="输入您的咨询内容…"
+                    />
+                  </div>
+                </div>
+              )}
+              {!activeRoom && (
+                <div className="flex h-full w-full items-center justify-center text-center">
+                  <div>
+                    <MessageSquare
+                      className="mx-auto mb-4 h-12 w-12 text-ink-text-faint"
+                      strokeWidth={1}
+                      aria-hidden="true"
+                    />
+                    <p className="display-card text-ink">选择一个会话开始对话</p>
+                    <p className="body-caption mt-2">
+                      从左侧列表中选取要继续的洽购会话
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

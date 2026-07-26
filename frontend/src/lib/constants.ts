@@ -161,12 +161,14 @@ export const DEFAULT_QUERY: BonsaiQuery = {
 };
 
 // 导航菜单（用户端顶部导航）
+// 对齐设计稿：3 项极简导航。"入苑"是登录入口的艺术化命名：
+// - 未登录：点击"入苑"→ /login
+// - 已登录：点击"入苑"→ /chat（询价咨询）
+// "分类"移至 Footer，"我的收藏/个人中心"移至用户头像下拉菜单
 export const NAV_LINKS = [
   { href: '/', label: '首页' },
   { href: '/bonsais', label: '盆景收藏' },
-  { href: '/categories', label: '分类' },
-  { href: '/chat', label: '询价' },
-  { href: '/favorites', label: '我的收藏' },
+  { href: '/chat', label: '入苑' },
 ] as const;
 
 // 管理后台导航

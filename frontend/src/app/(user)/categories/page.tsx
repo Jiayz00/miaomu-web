@@ -1,4 +1,5 @@
 // 分类总览页
+// 东方雅致设计系统：eyebrow-with-line + display-section + 4:5 比例卡片 + hover 金色描边
 //
 // 渲染逻辑：
 // - 从后端读取 CategoriesLayoutConfig，按其配置渲染
@@ -21,17 +22,11 @@ import {
   aspectToCss,
   columnsToClass,
 } from '@/lib/default-categories-layout';
+import { CATEGORY_FALLBACK_POOL } from '@/lib/default-images';
 import type { Category, CategoriesLayoutConfig } from '@/lib/types';
 
-// 分类页兜底图（用 picsum seed URL，加载稳定且不触发 ORB）
-const FALLBACK_IMAGES = [
-  'https://picsum.photos/seed/penjing-cat-1/800/1000',
-  'https://picsum.photos/seed/penjing-cat-2/800/1000',
-  'https://picsum.photos/seed/penjing-cat-3/800/1000',
-  'https://picsum.photos/seed/penjing-cat-4/800/1000',
-  'https://picsum.photos/seed/penjing-cat-5/800/1000',
-  'https://picsum.photos/seed/penjing-cat-6/800/1000',
-];
+// 分类页兜底图：使用 design-assets 中的盆景图轮转，保证视觉与设计稿一致
+const FALLBACK_IMAGES = [...CATEGORY_FALLBACK_POOL];
 
 export default function CategoriesPage() {
   // 并行拉取分类列表与布局配置
@@ -95,6 +90,7 @@ export default function CategoriesPage() {
   const gridClass = columnsToClass(config.columns);
 
   // 渲染单个分类卡片（grid / masonry 共用）
+  // 设计要点：4:5 比例 + hover 金色描边 + 渐变遮罩 + 底部信息
   const renderCard = (cat: Category, i: number, fallbackIdx: number) => {
     const cover = cat.coverImage || FALLBACK_IMAGES[fallbackIdx % FALLBACK_IMAGES.length];
     return (
@@ -107,36 +103,36 @@ export default function CategoriesPage() {
       >
         <Link
           href={`/categories/${cat.slug}`}
-          className="group relative block overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_-20px_rgba(26,58,46,0.25)]"
+          className="group relative block overflow-hidden border border-[var(--penjing-border-hairline)] transition-all duration-500 hover:border-gold hover:shadow-[var(--penjing-shadow-hover)]"
           aria-label={`查看分类：${cat.name}`}
         >
           <div
-            className="relative w-full overflow-hidden bg-primary-dark/5"
+            className="relative w-full overflow-hidden bg-paper-warm"
             style={{ aspectRatio: aspectCss }}
           >
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.2s] ease-penjing-soft group-hover:scale-105"
               style={{ backgroundImage: `url(${resolveImageUrl(cover)})` }}
             />
             {config.showOverlay && (
-              <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/90 via-primary-dark/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink-deepest/90 via-ink-deepest/20 to-transparent" />
             )}
             <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
               <TreePine
-                className="mb-3 h-6 w-6 text-accent"
+                className="mb-3 h-5 w-5 text-gold"
                 strokeWidth={1.5}
                 aria-hidden="true"
               />
-              <h3 className="font-serif text-2xl text-background md:text-3xl">
+              <h3 className="display-card text-paper">
                 {cat.name}
               </h3>
               {config.showDescription && cat.description && (
-                <p className="mt-2 line-clamp-2 text-sm text-background/60">
+                <p className="body-caption mt-2 line-clamp-2 text-paper/70">
                   {cat.description}
                 </p>
               )}
               {config.showArrow && (
-                <span className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-accent">
+                <span className="mt-4 inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.2em] text-gold">
                   探索 <ArrowRight className="h-3 w-3" aria-hidden="true" />
                 </span>
               )}
@@ -148,26 +144,38 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="pt-28">
-      <div className="container-luxury py-8 text-center md:py-12">
-        {config.eyebrow && (
-          <span className="section-eyebrow justify-center">{config.eyebrow}</span>
-        )}
-        <h1 className="font-serif text-4xl text-primary md:text-5xl">
-          {config.title || '分类一览'}
-        </h1>
-        {config.subtitle && (
-          <p className="mx-auto mt-3 max-w-lg text-sm text-text-light">
-            {config.subtitle}
-          </p>
-        )}
-      </div>
+    <div className="pt-[72px]" aria-label="草木之类">
+      {/* 引言带：eyebrow + display-section + body-large 副标题 */}
+      <section className="section-paper texture-paper border-b border-[var(--penjing-border-hairline)]">
+        <div className="container-penjing py-16 md:py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="text-center"
+          >
+            <span className="eyebrow-with-line justify-center">
+              <span className="eyebrow-label">{config.eyebrow || '草木之类'}</span>
+            </span>
+            <h1 className="display-section text-ink">
+              {config.title || '草木之类'}
+            </h1>
+            {config.subtitle && (
+              <p className="body-large mx-auto mt-5 max-w-[560px] text-ink-text-secondary">
+                {config.subtitle}
+              </p>
+            )}
+            <span className="mt-7 mx-auto block h-px w-16 bg-gold" aria-hidden="true" />
+          </motion.div>
+        </div>
+      </section>
 
-      <div className="container-luxury pb-20 md:pb-28">
+      {/* 分类卡片网格 */}
+      <section className="container-penjing py-14 md:py-20" aria-label="分类目录">
         {isLoading ? (
           <div
             className={cn(
-              'grid grid-cols-1 gap-5 lg:gap-6',
+              'grid grid-cols-1 gap-8 lg:gap-10',
               gridClass,
             )}
           >
@@ -181,16 +189,20 @@ export default function CategoriesPage() {
           </div>
         ) : isError ? (
           <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
-            <AlertCircle className="mb-4 h-10 w-10 text-accent" strokeWidth={1.5} />
-            <p className="font-serif text-2xl text-primary">无法加载分类</p>
-            <p className="mt-2 text-sm text-text-muted">
+            <AlertCircle
+              className="mb-4 h-10 w-10 text-gold-deep"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+            <p className="display-card text-ink">无法加载分类</p>
+            <p className="body-caption mt-2">
               {error instanceof ApiError ? error.message : '网络异常或服务暂不可用，请稍后重试'}
             </p>
             <button
               type="button"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="mt-8 inline-flex items-center gap-2 border border-accent px-6 py-3 text-xs uppercase tracking-[0.2em] text-accent transition-colors hover:bg-accent hover:text-primary active:scale-95 disabled:opacity-50"
+              className="btn-outline-gold mt-8 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw
                 className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')}
@@ -212,7 +224,7 @@ export default function CategoriesPage() {
             // 瀑布流：CSS columns 实现（响应不同图片高度）
             // 使用 <img> 元素保持图片原始宽高比，让卡片高度自然变化
             <div
-              className="gap-5 lg:gap-6 [column-fill:_balance]"
+              className="gap-8 lg:gap-10 [column-fill:_balance]"
               style={{
                 columnCount: config.columns,
               }}
@@ -220,39 +232,39 @@ export default function CategoriesPage() {
               {sortedCategories.map((cat, i) => {
                 const cover = cat.coverImage || FALLBACK_IMAGES[i % FALLBACK_IMAGES.length];
                 return (
-                  <div key={cat.id} className="mb-5 break-inside-avoid lg:mb-6">
+                  <div key={cat.id} className="mb-8 break-inside-avoid lg:mb-10">
                     <Link
                       href={`/categories/${cat.slug}`}
-                      className="group relative block overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_-20px_rgba(26,58,46,0.25)]"
+                      className="group relative block overflow-hidden border border-[var(--penjing-border-hairline)] transition-all duration-500 hover:border-gold hover:shadow-[var(--penjing-shadow-hover)]"
                       aria-label={`查看分类：${cat.name}`}
                     >
-                      <div className="relative w-full overflow-hidden bg-primary-dark/5">
+                      <div className="relative w-full overflow-hidden bg-paper-warm">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={resolveImageUrl(cover)}
                           alt={cat.name}
-                          className="w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
+                          className="w-full object-cover transition-transform duration-[1.2s] ease-penjing-soft group-hover:scale-105"
                           loading="lazy"
                         />
                         {config.showOverlay && (
-                          <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/90 via-primary-dark/20 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-ink-deepest/90 via-ink-deepest/20 to-transparent" />
                         )}
                         <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
                           <TreePine
-                            className="mb-3 h-6 w-6 text-accent"
+                            className="mb-3 h-5 w-5 text-gold"
                             strokeWidth={1.5}
                             aria-hidden="true"
                           />
-                          <h3 className="font-serif text-2xl text-background md:text-3xl">
+                          <h3 className="display-card text-paper">
                             {cat.name}
                           </h3>
                           {config.showDescription && cat.description && (
-                            <p className="mt-2 line-clamp-2 text-sm text-background/60">
+                            <p className="body-caption mt-2 line-clamp-2 text-paper/70">
                               {cat.description}
                             </p>
                           )}
                           {config.showArrow && (
-                            <span className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-accent">
+                            <span className="mt-4 inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.2em] text-gold">
                               探索 <ArrowRight className="h-3 w-3" aria-hidden="true" />
                             </span>
                           )}
@@ -265,7 +277,7 @@ export default function CategoriesPage() {
             </div>
           ) : (
             // 网格模式（默认）
-            <div className={cn('grid grid-cols-1 gap-5 lg:gap-6', gridClass)}>
+            <div className={cn('grid grid-cols-1 gap-8 lg:gap-10', gridClass)}>
               {sortedCategories.map((cat, i) =>
                 renderCard(cat, i, i),
               )}
@@ -273,12 +285,16 @@ export default function CategoriesPage() {
           )
         ) : (
           <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
-            <TreePine className="mb-3 h-10 w-10 text-text-muted/40" strokeWidth={1} />
-            <p className="font-serif text-2xl text-primary">暂无分类</p>
-            <p className="mt-2 text-sm text-text-muted">分类尚未创建，敬请期待</p>
+            <TreePine
+              className="mb-3 h-10 w-10 text-ink-text-faint"
+              strokeWidth={1}
+              aria-hidden="true"
+            />
+            <p className="display-card text-ink">暂无分类</p>
+            <p className="body-caption mt-3">分类尚未创建，敬请期待</p>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,4 +1,7 @@
 import { IsEmail, IsOptional, IsString, Length, Matches } from 'class-validator';
+
+// URL 校验：允许 http(s) 外链或 /uploads/ 站内路径，防止 javascript: 伪协议与 SSRF 展示
+const URL_PATTERN = /^(https?:\/\/|\/uploads\/).+$/;
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
@@ -31,5 +34,6 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 500)
+  @Matches(URL_PATTERN, { message: '头像 URL 必须是 http(s) 链接或 /uploads/ 站内路径' })
   avatar?: string;
 }

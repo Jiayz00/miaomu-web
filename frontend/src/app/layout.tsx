@@ -58,7 +58,7 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${cormorant.variable} ${notoSerif.variable} ${notoSans.variable}`}
     >
-      <body className="min-h-screen bg-background text-text antialiased">
+      <body className="min-h-dvh bg-paper text-ink-text antialiased">
         {/* 跳转到主内容（WCAG 2.4.1 Bypass Blocks） */}
         <a href="#main-content" className="skip-to-content">
           跳转到主内容

@@ -1,4 +1,11 @@
 // 盆景管理列表：表格 + 搜索 + 操作
+//
+// 设计系统对齐：
+// - 顶部标题：eyebrow-label + display-card + 统计计数
+// - 工具栏：paper-warm 背景 + 金色边框激活
+// - 表格：paper-warm 卡片 + 表头 ink-text-muted + 行 hover paper
+// - 状态/库存徽章：使用设计系统 token
+// - 分页：复用 Pagination 组件（已对齐设计系统）
 
 'use client';
 
@@ -9,6 +16,7 @@ import { Plus, Search, Pencil, Trash2, Eye, AlertCircle, RefreshCw } from 'lucid
 import { api, ApiError } from '@/lib/api';
 import { useDebounced } from '@/hooks/use-debounced';
 import { cn, formatPrice, formatDate, getMainImage } from '@/lib/utils';
+import { Pagination } from '@/components/Pagination';
 import type { Bonsai, Category, PaginatedResponse } from '@/lib/types';
 
 export default function AdminBonsaisPage() {
@@ -89,24 +97,28 @@ export default function AdminBonsaisPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-primary">盆景管理</h1>
-          <p className="mt-1 text-sm text-text-muted">共 {total} 件盆景</p>
+          <span className="eyebrow-label">藏品管理</span>
+          <h1 className="display-section mt-2 text-ink">盆景管理</h1>
+          <p className="body-base mt-2 text-ink-text-secondary">
+            共 {total} 件盆景
+          </p>
         </div>
-        <Link
-          href="/admin/bonsais/new"
-          className="flex items-center gap-2 bg-primary px-6 py-3 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-primary-light"
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
+        <Link href="/admin/bonsais/new" className="btn-gold">
+          <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
           新增盆景
         </Link>
       </div>
 
-      {/* 筛选栏 */}
-      <div className="mb-6 flex flex-wrap items-center gap-4 border border-text-muted/15 bg-surface p-4">
+      {/* 工具栏：搜索 + 分类筛选 */}
+      <div className="mb-6 flex flex-wrap items-center gap-4 border border-[var(--penjing-border-fine)] bg-paper-warm p-4">
         <div className="flex flex-1 items-center gap-2">
-          <Search className="h-4 w-4 text-text-muted" strokeWidth={1.5} aria-hidden="true" />
+          <Search
+            className="h-4 w-4 flex-shrink-0 text-ink-text-muted"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
           <input
             id="admin-bonsai-search"
             name="admin-bonsai-search"
@@ -118,7 +130,7 @@ export default function AdminBonsaisPage() {
             }}
             placeholder="搜索盆景名称…"
             aria-label="搜索盆景名称"
-            className="flex-1 border-0 bg-transparent py-1 text-sm focus:outline-none"
+            className="flex-1 border-0 bg-transparent py-1 font-sans text-sm text-ink-text placeholder:text-ink-text-faint focus:outline-none"
           />
         </div>
         <select
@@ -128,7 +140,7 @@ export default function AdminBonsaisPage() {
             setPage(1);
           }}
           aria-label="按分类筛选"
-          className="border border-text-muted/20 bg-surface px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
+          className="border border-[var(--penjing-border-fine)] bg-paper px-3 py-1.5 font-sans text-sm text-ink-text transition-colors focus:border-gold focus:outline-none"
         >
           <option value="">全部分类</option>
           {categories?.map((cat) => (
@@ -140,25 +152,27 @@ export default function AdminBonsaisPage() {
       </div>
 
       {/* 表格 */}
-      <div className="overflow-x-auto border border-text-muted/15 bg-surface">
+      <div className="overflow-x-auto border border-[var(--penjing-border-fine)] bg-paper-warm">
         <table className="w-full">
-          <caption className="sr-only">盆景列表，含图片、名称、价格、库存、分类、状态、创建时间与操作</caption>
+          <caption className="sr-only">
+            盆景列表，含图片、名称、价格、库存、分类、状态、创建时间与操作
+          </caption>
           <thead>
-            <tr className="border-b border-text-muted/15 bg-background/50 text-left text-xs uppercase tracking-[0.15em] text-text-muted">
-              <th scope="col" className="px-4 py-4">图片</th>
-              <th scope="col" className="px-4 py-4">名称</th>
-              <th scope="col" className="px-4 py-4">价格</th>
-              <th scope="col" className="px-4 py-4">库存</th>
-              <th scope="col" className="px-4 py-4">分类</th>
-              <th scope="col" className="px-4 py-4">状态</th>
-              <th scope="col" className="px-4 py-4">创建时间</th>
-              <th scope="col" className="px-4 py-4 text-right">操作</th>
+            <tr className="border-b border-[var(--penjing-border-fine)] bg-paper text-left font-sans text-[11px] uppercase tracking-[0.25em] text-ink-text-muted">
+              <th scope="col" className="px-4 py-4 font-medium">图片</th>
+              <th scope="col" className="px-4 py-4 font-medium">名称</th>
+              <th scope="col" className="px-4 py-4 font-medium">价格</th>
+              <th scope="col" className="px-4 py-4 font-medium">库存</th>
+              <th scope="col" className="px-4 py-4 font-medium">分类</th>
+              <th scope="col" className="px-4 py-4 font-medium">状态</th>
+              <th scope="col" className="px-4 py-4 font-medium">创建时间</th>
+              <th scope="col" className="px-4 py-4 text-right font-medium">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-text-muted/10">
+          <tbody className="divide-y divide-[var(--penjing-border-hairline)]">
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-text-muted">
+                <td colSpan={8} className="px-4 py-12 text-center font-sans text-sm text-ink-text-muted">
                   加载中…
                 </td>
               </tr>
@@ -166,15 +180,15 @@ export default function AdminBonsaisPage() {
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <AlertCircle className="h-8 w-8 text-red-500" strokeWidth={1.5} aria-hidden="true" />
-                    <p className="text-sm text-red-600" role="alert">
+                    <AlertCircle className="h-8 w-8 text-state-error" strokeWidth={1.5} aria-hidden="true" />
+                    <p className="font-sans text-sm text-state-error" role="alert">
                       {error instanceof ApiError ? error.message : '加载失败，请稍后重试'}
                     </p>
                     <button
                       type="button"
                       onClick={() => refetch()}
                       disabled={isFetching}
-                      className="flex items-center gap-1.5 border border-text-muted/30 px-4 py-1.5 text-xs uppercase tracking-[0.15em] text-text-light transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                      className="flex items-center gap-1.5 border border-[var(--penjing-border-fine)] px-4 py-1.5 font-sans text-xs uppercase tracking-[0.2em] text-ink-text-secondary transition-colors hover:border-gold hover:text-gold-deep disabled:opacity-50"
                     >
                       <RefreshCw className={cn('h-3 w-3', isFetching && 'animate-spin')} aria-hidden="true" />
                       重试
@@ -184,9 +198,12 @@ export default function AdminBonsaisPage() {
               </tr>
             ) : items.length > 0 ? (
               items.map((bonsai) => (
-                <tr key={bonsai.id} className="text-sm transition-colors hover:bg-background/50">
+                <tr
+                  key={bonsai.id}
+                  className="font-sans text-sm transition-colors hover:bg-paper"
+                >
                   <td className="px-4 py-3">
-                    <div className="h-14 w-14 overflow-hidden bg-primary-dark/10">
+                    <div className="h-14 w-14 overflow-hidden bg-paper-aged">
                       {getMainImage(bonsai.images) && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -198,29 +215,35 @@ export default function AdminBonsaisPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-primary">{bonsai.name}</p>
+                    <p className="font-medium text-ink">{bonsai.name}</p>
                     {bonsai.isFeatured && (
-                      <span className="text-xs text-accent">精选</span>
+                      <span className="font-sans text-[11px] uppercase tracking-[0.2em] text-gold-deep">
+                        精选
+                      </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-accent">¥{formatPrice(bonsai.price)}</td>
+                  <td className="px-4 py-3 font-serif text-base text-gold-deep">
+                    ¥{formatPrice(bonsai.price)}
+                  </td>
                   <td className="px-4 py-3">
                     {/* 库存预警：≤2 显示警示色，0 显示售罄，便于运营快速识别需补货商品 */}
                     {bonsai.stock <= 0 ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-red-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden="true" />
+                      <span className="inline-flex items-center gap-1 font-sans text-xs text-state-error">
+                        <span className="h-1.5 w-1.5 rounded-full bg-state-error" aria-hidden="true" />
                         售罄
                       </span>
                     ) : bonsai.stock <= 2 ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-accent-dark">
-                        <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+                      <span className="inline-flex items-center gap-1 font-sans text-xs text-gold-deep">
+                        <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
                         {bonsai.stock} 株
                       </span>
                     ) : (
-                      <span className="text-text-light">{bonsai.stock}</span>
+                      <span className="font-sans text-sm text-ink-text-secondary">
+                        {bonsai.stock}
+                      </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-text-light">
+                  <td className="px-4 py-3 font-sans text-sm text-ink-text-secondary">
                     {bonsai.category?.name || '—'}
                   </td>
                   <td className="px-4 py-3">
@@ -235,23 +258,23 @@ export default function AdminBonsaisPage() {
                       aria-pressed={bonsai.status === 1}
                       aria-label={`${bonsai.name}：${bonsai.status === 1 ? '已上架，点击下架' : '已下架，点击上架'}`}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors',
+                        'inline-flex items-center gap-1.5 border px-2.5 py-1 font-sans text-xs transition-colors',
                         bonsai.status === 1
-                          ? 'bg-accent/20 text-accent'
-                          : 'bg-text-muted/20 text-text-muted'
+                          ? 'border-gold bg-gold/10 text-gold-deep'
+                          : 'border-[var(--penjing-border-fine)] bg-paper text-ink-text-muted',
                       )}
                     >
                       <span
                         className={cn(
                           'h-1.5 w-1.5 rounded-full',
-                          bonsai.status === 1 ? 'bg-accent' : 'bg-text-muted'
+                          bonsai.status === 1 ? 'bg-gold' : 'bg-ink-text-faint',
                         )}
                         aria-hidden="true"
                       />
                       {bonsai.status === 1 ? '已上架' : '已下架'}
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-xs text-text-muted">
+                  <td className="px-4 py-3 font-sans text-xs text-ink-text-muted">
                     {formatDate(bonsai.createdAt)}
                   </td>
                   <td className="px-4 py-3">
@@ -259,14 +282,14 @@ export default function AdminBonsaisPage() {
                       <Link
                         href={`/bonsais/${bonsai.slug}`}
                         target="_blank"
-                        className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-accent"
+                        className="flex h-8 w-8 items-center justify-center text-ink-text-secondary transition-colors hover:text-gold-deep"
                         aria-label={`查看 ${bonsai.name}`}
                       >
                         <Eye className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                       </Link>
                       <Link
                         href={`/admin/bonsais/${bonsai.id}`}
-                        className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-accent"
+                        className="flex h-8 w-8 items-center justify-center text-ink-text-secondary transition-colors hover:text-gold-deep"
                         aria-label={`编辑 ${bonsai.name}`}
                       >
                         <Pencil className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
@@ -274,7 +297,7 @@ export default function AdminBonsaisPage() {
                       <button
                         type="button"
                         onClick={() => handleDelete(bonsai)}
-                        className="flex h-8 w-8 items-center justify-center text-text-light transition-colors hover:text-red-500"
+                        className="flex h-8 w-8 items-center justify-center text-ink-text-secondary transition-colors hover:text-state-error"
                         aria-label={`删除 ${bonsai.name}`}
                       >
                         <Trash2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
@@ -285,7 +308,7 @@ export default function AdminBonsaisPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-text-muted">
+                <td colSpan={8} className="px-4 py-12 text-center font-sans text-sm text-ink-text-muted">
                   暂无盆景数据
                 </td>
               </tr>
@@ -294,32 +317,12 @@ export default function AdminBonsaisPage() {
         </table>
       </div>
 
-      {/* 分页 */}
-      {totalPages > 1 && (
-        <nav className="mt-6 flex items-center justify-center gap-2" aria-label="盆景列表分页">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            aria-label="上一页"
-            className="border border-text-muted/20 px-4 py-2 text-sm disabled:opacity-30"
-          >
-            上一页
-          </button>
-          <span className="px-4 text-sm text-text-light" aria-current="page">
-            {page} / {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            aria-label="下一页"
-            className="border border-text-muted/20 px-4 py-2 text-sm disabled:opacity-30"
-          >
-            下一页
-          </button>
-        </nav>
-      )}
+      {/* 分页：复用已对齐设计系统的 Pagination 组件 */}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

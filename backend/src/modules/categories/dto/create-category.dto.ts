@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
@@ -23,6 +23,8 @@ export class CreateCategoryDto {
   @ApiPropertyOptional({ description: '封面图 URL' })
   @IsOptional()
   @IsString()
+  @Length(1, 500)
+  @Matches(/^(https?:\/\/|\/uploads\/).+$/, { message: '封面图 URL 必须是 http(s) 链接或 /uploads/ 站内路径' })
   coverImage?: string;
 
   @ApiPropertyOptional({ description: '排序（越小越靠前）', default: 0 })

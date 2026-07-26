@@ -1,9 +1,10 @@
 // 加载骨架屏组件
+// 东方雅致风格：金色 spinner + paper-warm 骨架占位
 
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
-// 骨架行（视觉占位，对屏读器隐藏，避免误读为内容）
+// 骨架行（视觉占位，对屏读器隐藏）
 export function Skeleton({
   className,
   style,
@@ -16,7 +17,7 @@ export function Skeleton({
       aria-hidden="true"
       style={style}
       className={cn(
-        'animate-pulse bg-text-muted/15 rounded-sm',
+        'animate-pulse rounded-[var(--penjing-radius-sm)] bg-paper-aged',
         className
       )}
     />
@@ -45,7 +46,7 @@ export function BonsaiGridSkeleton({ count = 8 }: { count?: number }) {
   );
 }
 
-// 全屏加载（WCAG 4.1.3：通过 role="status" + aria-live 通知屏读器）
+// 全屏加载（WCAG 4.1.3）
 export function FullPageLoading() {
   return (
     <div
@@ -56,10 +57,10 @@ export function FullPageLoading() {
     >
       <div className="flex flex-col items-center gap-4">
         <div className="relative h-12 w-12">
-          <div className="absolute inset-0 rounded-full border border-primary/20" />
-          <div className="absolute inset-0 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <div className="absolute inset-0 rounded-full border border-[var(--penjing-border-fine)]" />
+          <div className="absolute inset-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
         </div>
-        <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
+        <p className="font-sans text-xs uppercase tracking-[0.3em] text-ink-text-muted">
           加载中
         </p>
       </div>
@@ -75,10 +76,10 @@ export function InlineLoading({ text = '加载中' }: { text?: string }) {
       role="status"
       aria-live="polite"
       aria-busy="true"
-      className="flex items-center justify-center gap-3 py-12 text-text-muted"
+      className="flex items-center justify-center gap-3 py-12 text-ink-text-muted"
     >
-      <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-      <span className="text-sm">{text}…</span>
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+      <span className="font-sans text-sm">{text}…</span>
       <span className="sr-only">{text}中，请稍候</span>
     </div>
   );

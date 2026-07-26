@@ -1,13 +1,25 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SiteSectionDto } from './dto/update-site-layout.dto';
+import {
+  SiteSectionDto,
+  SUPPORTED_LAYOUT_KEYS,
+  type SupportedLayoutKey,
+} from './dto/update-site-layout.dto';
 import {
   CategoriesLayoutConfigDto,
   CategoryCardAspect,
   CategoryLayoutMode,
   CategorySortBy,
 } from './dto/update-categories-layout.dto';
+import {
+  SITE_ASSET_CATEGORIES,
+  type SiteAssetCategory,
+  type SiteAssetDto,
+  type SiteAssetListResponseDto,
+} from './dto/site-asset.dto';
 
 /**
  * 站点设置服务
@@ -20,6 +32,53 @@ import {
  * 公开接口仅返回启用的字段（show_xxx === 'true'），
  * 管理员接口返回全部字段及可见性状态
  */
+
+/**
+ * 历史图片路径迁移映射
+ * 早期版本将设计稿图片放在 /design-assets/，后统一迁移到 /images/。
+ * 该映射用于在启动/种子阶段自动修正数据库中残留的旧路径，避免 404。
+ */
+export const STALE_IMAGE_PATH_MAP: Record<string, string> = {
+  '/design-assets/image_0_yi19x4.jpg': '/images/hero-penjing-garden.jpg',
+  '/design-assets/image_1_yi19x4.jpg': '/images/bonsais/welcome-pine.jpg',
+  '/design-assets/image_2_yi19x4.jpg': '/images/bonsais/cliff-cypress.jpg',
+  '/design-assets/image_3_yi19x4.jpg': '/images/bonsais/winter-plum.jpg',
+  '/design-assets/image_4_yi19x4.jpg': '/images/artisan-pruning.jpg',
+  '/design-assets/image_5_yi19x4.jpg': '/images/serene-garden.jpg',
+};
+
+/**
+ * 递归替换 JSON 中的历史图片路径
+ * 返回替换后的新对象（不修改原对象）以及是否发生过替换
+ */
+export function normalizeStaleImagePaths<T>(value: T): { result: T; changed: boolean } {
+  let changed = false;
+
+  function walk<V>(v: V): V {
+    if (typeof v === 'string') {
+      const replacement = STALE_IMAGE_PATH_MAP[v];
+      if (replacement) {
+        changed = true;
+        return replacement as unknown as V;
+      }
+      return v;
+    }
+    if (Array.isArray(v)) {
+      return v.map(walk) as unknown as V;
+    }
+    if (v !== null && typeof v === 'object') {
+      const next: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
+        next[key] = walk(val);
+      }
+      return next as unknown as V;
+    }
+    return v;
+  }
+
+  const result = walk(value);
+  return { result, changed };
+}
 
 // 默认设置（首次启动或重置时使用）
 export const DEFAULT_SETTINGS: Record<string, string> = {
@@ -53,8 +112,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS: SiteSectionDto[] = [
     visible: true,
     order: 1,
     config: {
-      heroImage:
-        'https://images.unsplash.com/photo-1524598171347-833e3329d8ab?auto=format&fit=crop&w=1920&q=80',
+      heroImage: '/images/hero-penjing-garden.jpg',
       eyebrow: 'Penjing · Bonsai Art',
       ctaPrimaryText: '探索收藏',
       ctaPrimaryLink: '/bonsais',
@@ -97,8 +155,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS: SiteSectionDto[] = [
     visible: true,
     order: 4,
     config: {
-      image:
-        'https://images.unsplash.com/photo-1597055181300-e3633a917e3a?auto=format&fit=crop&w=1000&q=80',
+      image: '/images/artisan-pruning.jpg',
       eyebrow: '品牌故事',
       paragraphs: [
         '盆景艺术源远流长，始于唐代，盛于明清。它以"以小见大"的艺术手法，将山川草木的壮丽浓缩于方寸之间，是中华园林艺术的瑰宝。',
@@ -132,11 +189,87 @@ export const DEFAULT_HOMEPAGE_SECTIONS: SiteSectionDto[] = [
 const CONTACT_FIELDS = ['phone', 'email', 'address', 'wechat', 'weibo'] as const;
 const TOGGLE_KEYS = CONTACT_FIELDS.map((f) => `show_${f}`) as string[];
 
+/**
+ * 各布局 key 的默认区块配置
+ * 站点编辑器支持 3 个页面：homepage / collection / detail
+ * 新增 key 时需在此追加默认配置，并在 SUPPORTED_LAYOUT_KEYS 中注册
+ */
+const DEFAULT_LAYOUTS: Record<SupportedLayoutKey, SiteSectionDto[]> = {
+  homepage: DEFAULT_HOMEPAGE_SECTIONS,
+
+  // 盆景收藏列表页（/bonsais）：横幅 + 筛选提示 + 网格
+  collection: [
+    {
+      id: 'collection-banner-default',
+      type: 'banner',
+      title: '盆景收藏',
+      subtitle: '于方寸之间，寻觅属于您的那一株。',
+      visible: true,
+      order: 1,
+      config: {
+        image: '/images/serene-garden.jpg',
+        eyebrow: '当代盆景策展',
+        title: '盆景收藏',
+        subtitle: '于方寸之间，寻觅属于您的那一株。',
+        height: 60,
+        align: 'center',
+        overlay: true,
+        overlayOpacity: 45,
+      },
+    },
+    {
+      id: 'collection-intro-default',
+      type: 'text',
+      title: '关于此苑',
+      subtitle: '',
+      visible: true,
+      order: 2,
+      config: {
+        content:
+          '此苑汇集本馆珍藏盆景，按品类、产地、树龄分门别类。可借由筛选与排序，于众多藏品中觅得心仪之选；亦可直达藏品详情页，了解每一株的来龙与去脉。',
+      },
+    },
+  ],
+
+  // 藏品详情页（/bonsais/:slug）：默认仅一个 text 区块说明
+  // 实际详情页内容由 Bonsai 数据驱动，此布局仅用于页面顶部自定义内容
+  detail: [
+    {
+      id: 'detail-intro-default',
+      type: 'text',
+      title: '藏品故事',
+      subtitle: '',
+      visible: true,
+      order: 1,
+      config: {
+        content:
+          '每一株盆景皆承载独特故事。于此页可呈现匠人手记、养护建议与历史源流，让访客在欣赏之外，更深入了解每一件藏品的来龙去脉。',
+      },
+    },
+  ],
+};
+
+/**
+ * 预览 token 的 JWT 载荷
+ * sub: 'preview' 用于区分普通用户 JWT
+ * key: 要预览的布局 key
+ */
+interface PreviewTokenPayload {
+  sub: 'preview';
+  key: string;
+  iat?: number;
+  exp?: number;
+}
+
 @Injectable()
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * 初始化默认设置（首次启动时调用）
@@ -264,41 +397,57 @@ export class SettingsService {
   // ============ 主页布局（SiteLayout）============
 
   /**
-   * 初始化默认主页布局（首次启动时调用，幂等）
-   * 已存在的 key 不会被覆盖；同时确保有且仅有一条 isActive=true 的记录
+   * 初始化默认布局（首次启动时调用，幂等）
+   * 为所有 SUPPORTED_LAYOUT_KEYS 创建默认记录；已存在的 key 不会被覆盖
+   * 同时确保 homepage 始终激活（用于前台 SSR）
    */
   async initDefaultLayout(): Promise<void> {
-    const existing = await this.prisma.siteLayout.findUnique({
-      where: { key: 'homepage' },
-    });
-    if (existing) {
-      // 已存在：若没有任何激活记录，则激活这条
-      const activeCount = await this.prisma.siteLayout.count({
-        where: { isActive: true },
-      });
-      if (activeCount === 0 && !existing.isActive) {
-        await this.prisma.siteLayout.update({
-          where: { id: existing.id },
-          data: { isActive: true },
-        });
-        this.logger.log('✅ 已激活默认主页布局');
+    for (const key of SUPPORTED_LAYOUT_KEYS) {
+      const existing = await this.prisma.siteLayout.findUnique({ where: { key } });
+      if (existing) {
+        // 迁移历史图片路径（如 /design-assets/ → /images/），避免旧数据 404
+        const { result: normalizedSections, changed } = normalizeStaleImagePaths(
+          existing.sections as unknown as SiteSectionDto[],
+        );
+        if (changed) {
+          await this.prisma.siteLayout.update({
+            where: { key },
+            data: { sections: normalizedSections as unknown as Prisma.InputJsonValue },
+          });
+          this.logger.log(`✅ 已迁移布局 [${key}] 中的历史图片路径`);
+        }
+        continue;
       }
-      return;
+
+      const defaultSections = DEFAULT_LAYOUTS[key];
+      await this.prisma.siteLayout.create({
+        data: {
+          key,
+          sections: defaultSections as unknown as Prisma.InputJsonValue,
+          // 仅 homepage 默认激活；collection/detail 默认不激活（由前端按需启用）
+          isActive: key === 'homepage',
+        },
+      });
+      this.logger.log(`✅ 已创建默认布局 [${key}]`);
     }
 
-    await this.prisma.siteLayout.create({
-      data: {
-        key: 'homepage',
-        sections: DEFAULT_HOMEPAGE_SECTIONS as unknown as Prisma.InputJsonValue,
-        isActive: true,
-      },
+    // 确保 homepage 始终有激活记录
+    const activeHomepage = await this.prisma.siteLayout.findFirst({
+      where: { key: 'homepage', isActive: true },
     });
-    this.logger.log('✅ 已创建默认主页布局');
+    if (!activeHomepage) {
+      await this.prisma.siteLayout.updateMany({
+        where: { key: 'homepage' },
+        data: { isActive: true },
+      });
+      this.logger.log('✅ 已激活默认 homepage 布局');
+    }
   }
 
   /**
    * 公开接口：获取指定 key 当前激活的布局配置
-   * 用于前台 SSR 渲染主页
+   * 用于前台 SSR 渲染主页/收藏页/详情页
+   * 仅返回已发布版本（sections），不返回草稿
    */
   async getActiveLayout(key: string): Promise<{
     key: string;
@@ -317,7 +466,7 @@ export class SettingsService {
   }
 
   /**
-   * 管理员接口：获取全部布局列表
+   * 管理员接口：获取全部布局列表（含草稿状态摘要）
    */
   async getAllLayouts(): Promise<
     Array<{
@@ -325,6 +474,8 @@ export class SettingsService {
       key: string;
       sections: SiteSectionDto[];
       isActive: boolean;
+      hasDraft: boolean;
+      draftUpdatedAt: Date | null;
       createdAt: Date;
       updatedAt: Date;
     }>
@@ -337,6 +488,8 @@ export class SettingsService {
       key: l.key,
       sections: (l.sections as unknown as SiteSectionDto[]) ?? [],
       isActive: l.isActive,
+      hasDraft: l.draftSections !== null,
+      draftUpdatedAt: l.draftUpdatedAt,
       createdAt: l.createdAt,
       updatedAt: l.updatedAt,
     }));
@@ -344,11 +497,14 @@ export class SettingsService {
 
   /**
    * 管理员接口：获取指定 key 的布局（用于编辑回显）
+   * 同时返回已发布 sections 与草稿 draftSections（若有）
    */
   async getLayoutByKey(key: string): Promise<{
     id: number;
     key: string;
     sections: SiteSectionDto[];
+    draftSections: SiteSectionDto[] | null;
+    draftUpdatedAt: Date | null;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -361,6 +517,10 @@ export class SettingsService {
       id: layout.id,
       key: layout.key,
       sections: (layout.sections as unknown as SiteSectionDto[]) ?? [],
+      draftSections: layout.draftSections
+        ? (layout.draftSections as unknown as SiteSectionDto[])
+        : null,
+      draftUpdatedAt: layout.draftUpdatedAt,
       isActive: layout.isActive,
       createdAt: layout.createdAt,
       updatedAt: layout.updatedAt,
@@ -368,8 +528,182 @@ export class SettingsService {
   }
 
   /**
-   * 管理员接口：更新指定 key 的布局 sections
-   * 若该 key 不存在则创建；同时按 order 升序排序 sections
+   * 管理员接口：获取指定 key 的草稿（编辑器自动保存后拉取）
+   * 若无草稿（draftSections 为 null），返回已发布 sections 作为初始草稿
+   * 这样新进入编辑器时总有内容可编辑
+   */
+  async getDraftLayout(key: string): Promise<{
+    key: string;
+    sections: SiteSectionDto[];
+    draftUpdatedAt: Date | null;
+    hasUnpublishedChanges: boolean;
+    isActive: boolean;
+  } | null> {
+    const layout = await this.prisma.siteLayout.findUnique({ where: { key } });
+    if (!layout) return null;
+
+    const published = (layout.sections as unknown as SiteSectionDto[]) ?? [];
+    const draft = layout.draftSections
+      ? (layout.draftSections as unknown as SiteSectionDto[])
+      : null;
+
+    return {
+      key: layout.key,
+      sections: draft ?? published,
+      draftUpdatedAt: layout.draftUpdatedAt,
+      hasUnpublishedChanges: draft !== null,
+      isActive: layout.isActive,
+    };
+  }
+
+  /**
+   * 管理员接口：保存草稿（自动保存 / 手动保存草稿）
+   * 仅写入 draftSections + draftUpdatedAt，不影响已发布 sections
+   */
+  async updateDraftLayout(
+    key: string,
+    sections: SiteSectionDto[],
+  ): Promise<{
+    key: string;
+    draftUpdatedAt: Date;
+  }> {
+    const sorted = [...sections].sort((a, b) => a.order - b.order);
+
+    // upsert：若 key 不存在则创建（draftSections + sections 都设为相同内容，
+    // sections 留空创建会破坏前台渲染，故复用 sorted 作为初始已发布版本）
+    const existing = await this.prisma.siteLayout.findUnique({ where: { key } });
+    if (!existing) {
+      await this.prisma.siteLayout.create({
+        data: {
+          key,
+          sections: sorted as unknown as Prisma.InputJsonValue,
+          draftSections: sorted as unknown as Prisma.InputJsonValue,
+          draftUpdatedAt: new Date(),
+          isActive: key === 'homepage', // 仅 homepage 默认激活
+        },
+      });
+    } else {
+      await this.prisma.siteLayout.update({
+        where: { key },
+        data: {
+          draftSections: sorted as unknown as Prisma.InputJsonValue,
+          draftUpdatedAt: new Date(),
+        },
+      });
+    }
+
+    const refreshed = await this.prisma.siteLayout.findUnique({ where: { key } });
+    this.logger.log(
+      `✅ 保存草稿 [${key}]，共 ${sorted.length} 个区块，${refreshed!.draftUpdatedAt!.toISOString()}`,
+    );
+    return {
+      key,
+      draftUpdatedAt: refreshed!.draftUpdatedAt!,
+    };
+  }
+
+  /**
+   * 管理员接口：发布草稿
+   * 将 draftSections 复制到 sections（已发布版本），可选清空草稿
+   * 若无草稿（draftSections 为 null），抛出 NotFoundException
+   */
+  async publishLayout(
+    key: string,
+    clearDraft = true,
+  ): Promise<{
+    id: number;
+    key: string;
+    sections: SiteSectionDto[];
+    draftSections: SiteSectionDto[] | null;
+    isActive: boolean;
+  }> {
+    const layout = await this.prisma.siteLayout.findUnique({ where: { key } });
+    if (!layout) {
+      throw new NotFoundException(`布局 [${key}] 不存在`);
+    }
+    if (layout.draftSections === null) {
+      throw new NotFoundException(`布局 [${key}] 无草稿可发布`);
+    }
+
+    const draftSections = layout.draftSections as unknown as SiteSectionDto[];
+
+    await this.prisma.siteLayout.update({
+      where: { key },
+      data: {
+        sections: layout.draftSections,
+        draftSections: clearDraft ? Prisma.JsonNull : undefined,
+        draftUpdatedAt: clearDraft ? null : undefined,
+        // 发布即激活（保证前台能渲染到新版本）
+        isActive: true,
+      },
+    });
+
+    this.logger.log(
+      `✅ 发布布局 [${key}]，共 ${draftSections.length} 个区块，${clearDraft ? '已清空草稿' : '保留草稿'}`,
+    );
+
+    const refreshed = await this.prisma.siteLayout.findUnique({ where: { key } });
+    return {
+      id: refreshed!.id,
+      key: refreshed!.key,
+      sections: (refreshed!.sections as unknown as SiteSectionDto[]) ?? [],
+      draftSections: refreshed!.draftSections
+        ? (refreshed!.draftSections as unknown as SiteSectionDto[])
+        : null,
+      isActive: refreshed!.isActive,
+    };
+  }
+
+  /**
+   * 管理员接口：丢弃草稿
+   * 清空 draftSections，回退到已发布 sections
+   */
+  async discardDraft(key: string): Promise<{
+    id: number;
+    key: string;
+    sections: SiteSectionDto[];
+    draftSections: null;
+    isActive: boolean;
+  }> {
+    const layout = await this.prisma.siteLayout.findUnique({ where: { key } });
+    if (!layout) {
+      throw new NotFoundException(`布局 [${key}] 不存在`);
+    }
+    if (layout.draftSections === null) {
+      // 无草稿，幂等返回
+      return {
+        id: layout.id,
+        key: layout.key,
+        sections: (layout.sections as unknown as SiteSectionDto[]) ?? [],
+        draftSections: null,
+        isActive: layout.isActive,
+      };
+    }
+
+    await this.prisma.siteLayout.update({
+      where: { key },
+      data: {
+        draftSections: Prisma.JsonNull,
+        draftUpdatedAt: null,
+      },
+    });
+
+    this.logger.log(`✅ 丢弃草稿 [${key}]，回退到已发布版本`);
+
+    const refreshed = await this.prisma.siteLayout.findUnique({ where: { key } });
+    return {
+      id: refreshed!.id,
+      key: refreshed!.key,
+      sections: (refreshed!.sections as unknown as SiteSectionDto[]) ?? [],
+      draftSections: null,
+      isActive: refreshed!.isActive,
+    };
+  }
+
+  /**
+   * 管理员接口：更新指定 key 的【已发布】布局 sections
+   * 直接覆盖已发布版本，不经过草稿流程。
+   * 站点编辑器应优先使用 updateDraftLayout + publishLayout 工作流。
    */
   async updateLayout(
     key: string,
@@ -391,13 +725,13 @@ export class SettingsService {
       create: {
         key,
         sections: sorted as unknown as Prisma.InputJsonValue,
-        isActive: false,
+        isActive: key === 'homepage',
       },
     });
 
-    // 若当前没有任何激活的布局，自动激活这条（保证前台始终有布局可用）
+    // 若该 key 没有任何激活记录，自动激活（保证前台始终有布局可用）
     const activeCount = await this.prisma.siteLayout.count({
-      where: { isActive: true },
+      where: { key, isActive: true },
     });
     if (activeCount === 0) {
       await this.prisma.siteLayout.update({
@@ -406,7 +740,7 @@ export class SettingsService {
       });
     }
 
-    this.logger.log(`✅ 更新主页布局 [${key}]，共 ${sorted.length} 个区块`);
+    this.logger.log(`✅ 更新布局 [${key}]，共 ${sorted.length} 个区块`);
     const refreshed = await this.prisma.siteLayout.findUnique({ where: { key } });
     return {
       id: refreshed!.id,
@@ -420,7 +754,8 @@ export class SettingsService {
 
   /**
    * 管理员接口：激活指定 key 的布局
-   * 事务化：先全部置为 inactive，再激活目标 key，确保唯一性
+   * 由于 key 唯一约束，每个 key 仅一条记录，此处仅切换该记录的 isActive
+   * 不影响其他 key 的激活状态（多页面可同时激活）
    */
   async activateLayout(key: string): Promise<{
     id: number;
@@ -432,26 +767,19 @@ export class SettingsService {
       throw new NotFoundException(`布局 [${key}] 不存在`);
     }
 
-    await this.prisma.$transaction([
-      // 先全部取消激活
-      this.prisma.siteLayout.updateMany({
-        where: { isActive: true },
-        data: { isActive: false },
-      }),
-      // 再激活目标 key
-      this.prisma.siteLayout.update({
-        where: { key },
-        data: { isActive: true },
-      }),
-    ]);
+    await this.prisma.siteLayout.update({
+      where: { key },
+      data: { isActive: true },
+    });
 
-    this.logger.log(`✅ 已激活主页布局 [${key}]`);
+    this.logger.log(`✅ 已激活布局 [${key}]`);
     return { id: exists.id, key, isActive: true };
   }
 
   /**
    * 管理员接口：重置指定 key 的布局为默认配置
-   * 仅当 key === 'homepage' 时支持重置为默认
+   * 支持所有 SUPPORTED_LAYOUT_KEYS（homepage / collection / detail）
+   * 同时清空草稿
    */
   async resetLayout(key: string): Promise<{
     id: number;
@@ -459,28 +787,122 @@ export class SettingsService {
     sections: SiteSectionDto[];
     isActive: boolean;
   }> {
-    if (key !== 'homepage') {
-      throw new NotFoundException(`仅支持重置 homepage 布局`);
+    if (!SUPPORTED_LAYOUT_KEYS.includes(key as SupportedLayoutKey)) {
+      throw new NotFoundException(
+        `不支持重置布局 [${key}]，仅支持: ${SUPPORTED_LAYOUT_KEYS.join(', ')}`,
+      );
     }
+
+    const defaultSections = DEFAULT_LAYOUTS[key as SupportedLayoutKey];
 
     const layout = await this.prisma.siteLayout.upsert({
       where: { key },
       update: {
-        sections: DEFAULT_HOMEPAGE_SECTIONS as unknown as Prisma.InputJsonValue,
+        sections: defaultSections as unknown as Prisma.InputJsonValue,
+        draftSections: Prisma.JsonNull,
+        draftUpdatedAt: null,
       },
       create: {
         key,
-        sections: DEFAULT_HOMEPAGE_SECTIONS as unknown as Prisma.InputJsonValue,
-        isActive: true,
+        sections: defaultSections as unknown as Prisma.InputJsonValue,
+        isActive: key === 'homepage',
       },
     });
 
-    this.logger.log(`✅ 已重置主页布局 [${key}] 为默认配置`);
+    this.logger.log(`✅ 已重置布局 [${key}] 为默认配置`);
     return {
       id: layout.id,
       key: layout.key,
       sections: (layout.sections as unknown as SiteSectionDto[]) ?? [],
       isActive: layout.isActive,
+    };
+  }
+
+  // ============ 草稿预览（Preview Token）============
+
+  /**
+   * 管理员接口：生成草稿预览 token
+   * 使用 JWT 签名（stateless），默认 10 分钟有效，最长 30 分钟
+   * 前端用此 token 打开 /preview/layout/:key?token=xxx 在新窗口预览草稿
+   */
+  async createPreviewToken(
+    key: string,
+    ttlMinutes = 10,
+  ): Promise<{
+    previewUrl: string;
+    token: string;
+    expiresAt: number;
+  }> {
+    const exists = await this.prisma.siteLayout.findUnique({ where: { key } });
+    if (!exists) {
+      throw new NotFoundException(`布局 [${key}] 不存在`);
+    }
+
+    const payload: PreviewTokenPayload = { sub: 'preview', key };
+    const secret = this.configService.get<string>('jwt.secret');
+
+    const token = this.jwtService.sign(payload, {
+      secret,
+      expiresIn: `${ttlMinutes}m`,
+    });
+
+    // 解析过期时间（jwt.sign 不返回 exp，需手动计算）
+    const expiresAt = Math.floor(Date.now() / 1000) + ttlMinutes * 60;
+
+    this.logger.log(
+      `✅ 生成预览 token [${key}]，有效期 ${ttlMinutes} 分钟`,
+    );
+
+    return {
+      previewUrl: `/preview/layout/${key}?token=${token}`,
+      token,
+      expiresAt,
+    };
+  }
+
+  /**
+   * 公开接口（带 token 校验）：通过预览 token 获取草稿内容
+   * 用于 /preview/layout/:key 路由，新窗口预览编辑中的草稿
+   *
+   * 安全设计：
+   * - token 必须为有效 JWT 签名（防伪造）
+   * - sub 必须为 'preview'（防复用普通用户 token）
+   * - token 中的 key 必须与请求的 key 一致（防越权预览其他页面）
+   * - token 有过期时间（默认 10 分钟）
+   */
+  async getLayoutByPreviewToken(
+    key: string,
+    token: string,
+  ): Promise<{
+    key: string;
+    sections: SiteSectionDto[];
+    isPreview: true;
+  } | null> {
+    const secret = this.configService.get<string>('jwt.secret');
+
+    let payload: PreviewTokenPayload;
+    try {
+      payload = this.jwtService.verify<PreviewTokenPayload>(token, { secret });
+    } catch {
+      throw new UnauthorizedException('预览 token 无效或已过期');
+    }
+
+    if (payload.sub !== 'preview' || payload.key !== key) {
+      throw new UnauthorizedException('预览 token 与请求的布局不匹配');
+    }
+
+    const layout = await this.prisma.siteLayout.findUnique({ where: { key } });
+    if (!layout) return null;
+
+    // 优先返回草稿；无草稿则返回已发布版本（预览已发布版本也无害）
+    const sections = layout.draftSections
+      ? (layout.draftSections as unknown as SiteSectionDto[])
+      : (layout.sections as unknown as SiteSectionDto[]);
+
+    return {
+      key: layout.key,
+      sections: sections ?? [],
+      isPreview: true,
     };
   }
 }
@@ -580,5 +1002,196 @@ export class CategoriesLayoutService {
     });
     this.logger.log('✅ 已重置分类页布局配置为默认值');
     return { ...DEFAULT_CATEGORIES_LAYOUT };
+  }
+}
+
+// ============ 站点资源（图集管理）============
+
+/**
+ * 上传后持久化元数据时使用的输入结构
+ * 由 UploadService 在上传成功后构造并调用 createFromUpload
+ */
+export interface CreateSiteAssetInput {
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  width?: number | null;
+  height?: number | null;
+  duration?: number | null;
+  alt?: string | null;
+  category?: SiteAssetCategory;
+}
+
+/**
+ * 站点资源（图集）服务
+ *
+ * 设计：
+ * - 上传成功后由 UploadService 调用 createFromUpload 持久化元数据
+ * - 与 site_layouts.sections 解耦：sections.config 中的图片 URL 仅引用本表 url 字段
+ * - 提供分页列表、按 ID 查询、更新 alt、删除（含磁盘文件可选清理）等 CRUD
+ *
+ * 注意：
+ * - url 字段唯一约束；若同一 URL 重复写入，使用 upsert 幂等处理
+ * - 删除资源时仅删除数据库记录，磁盘文件由调用方决定是否清理（避免误删被引用的图片）
+ */
+@Injectable()
+export class SiteAssetService {
+  private readonly logger = new Logger(SiteAssetService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * 上传后写入元数据（幂等：URL 已存在则更新维度/大小等元数据）
+   * 由 UploadService.uploadSingle / uploadMultiple / uploadVideo 调用
+   */
+  async createFromUpload(input: CreateSiteAssetInput): Promise<SiteAssetDto> {
+    const category: SiteAssetCategory = input.category
+      ?? (input.mimeType.startsWith('video/') ? 'video' : 'image');
+
+    const asset = await this.prisma.siteAsset.upsert({
+      where: { url: input.url },
+      update: {
+        filename: input.filename,
+        mimeType: input.mimeType,
+        size: input.size,
+        width: input.width ?? null,
+        height: input.height ?? null,
+        duration: input.duration ?? null,
+        category,
+      },
+      create: {
+        url: input.url,
+        filename: input.filename,
+        mimeType: input.mimeType,
+        size: input.size,
+        width: input.width ?? null,
+        height: input.height ?? null,
+        duration: input.duration ?? null,
+        alt: input.alt ?? null,
+        category,
+      },
+    });
+
+    this.logger.log(
+      `✅ 记录资源元数据: ${asset.filename} (${category}, ${asset.size} bytes)`,
+    );
+    return this.toDto(asset);
+  }
+
+  /**
+   * 分页查询图集列表
+   * 支持按类别筛选；按 createdAt 降序排列（最新优先）
+   * 同时返回该筛选条件下的总占用空间
+   */
+  async list(params: {
+    category?: SiteAssetCategory;
+    page?: number;
+    pageSize?: number;
+  }): Promise<SiteAssetListResponseDto> {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 24));
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.SiteAssetWhereInput = {};
+    if (params.category && SITE_ASSET_CATEGORIES.includes(params.category)) {
+      where.category = params.category;
+    }
+
+    const [items, total, totalSizeAgg] = await Promise.all([
+      this.prisma.siteAsset.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.siteAsset.count({ where }),
+      this.prisma.siteAsset.aggregate({
+        where,
+        _sum: { size: true },
+      }),
+    ]);
+
+    return {
+      items: items.map((a) => this.toDto(a)),
+      total,
+      page,
+      pageSize,
+      totalSize: totalSizeAgg._sum.size ?? 0,
+    };
+  }
+
+  /**
+   * 按 ID 查询单个资源
+   */
+  async getById(id: number): Promise<SiteAssetDto | null> {
+    const asset = await this.prisma.siteAsset.findUnique({ where: { id } });
+    return asset ? this.toDto(asset) : null;
+  }
+
+  /**
+   * 更新资源（目前仅允许更新 alt 替代文本）
+   */
+  async update(
+    id: number,
+    data: { alt?: string | null },
+  ): Promise<SiteAssetDto> {
+    const asset = await this.prisma.siteAsset.update({
+      where: { id },
+      data: { alt: data.alt ?? null },
+    });
+    this.logger.log(`✅ 更新资源 alt: id=${id}, alt="${data.alt ?? ''}"`);
+    return this.toDto(asset);
+  }
+
+  /**
+   * 删除资源记录（不清理磁盘文件，避免误删被引用的图片）
+   * 返回被删除记录的 url，由调用方决定是否清理磁盘
+   */
+  async delete(id: number): Promise<{ id: number; url: string; filename: string }> {
+    const asset = await this.prisma.siteAsset.delete({ where: { id } });
+    this.logger.log(`✅ 删除资源记录: id=${id}, url=${asset.url}`);
+    return { id: asset.id, url: asset.url, filename: asset.filename };
+  }
+
+  /**
+   * 按 URL 查询（用于 UploadService 判断是否已记录）
+   */
+  async findByUrl(url: string): Promise<SiteAssetDto | null> {
+    const asset = await this.prisma.siteAsset.findUnique({ where: { url } });
+    return asset ? this.toDto(asset) : null;
+  }
+
+  /**
+   * 将 Prisma 模型转换为 DTO
+   */
+  private toDto(asset: {
+    id: number;
+    url: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    width: number | null;
+    height: number | null;
+    duration: number | null;
+    alt: string | null;
+    category: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }): SiteAssetDto {
+    return {
+      id: asset.id,
+      url: asset.url,
+      filename: asset.filename,
+      mimeType: asset.mimeType,
+      size: asset.size,
+      width: asset.width,
+      height: asset.height,
+      duration: asset.duration,
+      alt: asset.alt,
+      category: asset.category as SiteAssetCategory,
+      createdAt: asset.createdAt,
+      updatedAt: asset.updatedAt,
+    };
   }
 }
